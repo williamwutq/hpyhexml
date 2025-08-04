@@ -1,13 +1,17 @@
-from hex import Piece, HexEngine, Hex
-import random
-
 '''
 This module provides the game environment for the Hex game, including the game engine, piece factory, and game logic.
 It allows for the creation of game pieces, management of the game state, and interaction with algorithms that determine moves.
+
 Classes:
-    - PieceFactory: A factory class for creating and managing game pieces.
-    - Game: A class representing the game environment, including the game engine and piece queue.
+
+- PieceFactory: A factory class for creating and managing game pieces.
+- Game: A class representing the game environment, including the game engine and piece queue.
 '''
+
+
+from hex import Piece, HexEngine, Hex
+import random
+
 
 class PieceFactory:
     '''

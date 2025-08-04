@@ -1,12 +1,18 @@
-import game, hex
-from time import time
-
 '''
 This module provides functions to benchmark and compare different algorithms for the game HappyHex.
 It includes functions to benchmark a single algorithm, compare two algorithms, and compare an algorithm with a dataset of game states.
 These methods can be used to evaluate the performance of different strategies in the game.
 All methods include robust error handling and type checking to ensure correct usage.
+
+Functions:
+- benchmark: Benchmark a single algorithm by running multiple games and printing the results.
+- compare: Compare two algorithms by running multiple games and printing the results.
+- compare_with_data: Compare an algorithm with a dataset of game states and print the accuracy and similarity percentage.
 '''
+
+import game, hex
+from time import time
+
 
 def benchmark(alg, engine_radius: int, queue_size: int,
               eval_times: int = 10, print_on_completion: bool = True,
