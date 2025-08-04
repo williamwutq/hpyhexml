@@ -1,0 +1,9 @@
+### MacOS ###
+.DS_Store
+
+### Python Cache ###
+__pycache__/
+.pyc
+
+### Private Algos ###
+priv/
