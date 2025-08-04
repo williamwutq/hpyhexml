@@ -10,7 +10,7 @@ Functions:
 - compare_with_data: Compare an algorithm with a dataset of game states and print the accuracy and similarity percentage.
 '''
 
-import game, hex
+from . import game, hex
 from time import time
 
 

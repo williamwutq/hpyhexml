@@ -9,7 +9,7 @@ Classes:
 '''
 
 
-from hex import Piece, HexEngine, Hex
+from .hex import Piece, HexEngine, Hex
 import random
 
 
