@@ -349,7 +349,7 @@ class Piece:
         elif states is None:
             key = 0
         elif isinstance(states, list) and len(states) == 7 and all(isinstance(s, bool) for s in states):
-            key = sum((1 << i) if s else 0 for i, s in enumerate(states))
+            key = sum((1 << (6 - i)) if s else 0 for i, s in enumerate(states))
         else:
             raise TypeError("Invalid type for states")
         if key not in cls.__cache:
@@ -367,7 +367,7 @@ class Piece:
         for key in range(128):
             instance = object.__new__(cls)
             # Make __states immutable tuple
-            instance.__states = tuple((key & (1 << i)) != 0 for i in range(7))
+            instance.__states = tuple((key & (1 << (6 - i))) != 0 for i in range(7))
             cls.__cache[key] = instance
     
     def __init__(self, states: Union[list[bool], int] = None) -> None:
@@ -438,8 +438,9 @@ class Piece:
         '''
         data = 0
         for i, state in enumerate(self.__states):
+            data <<= 1
             if state:
-                data |= (1 << i)
+                data += 1
         return data
     
     def states(self) -> tuple[bool, ...]:
@@ -1172,9 +1173,10 @@ class HexEngine:
         '''
         pattern = 0
         for i in range(7):
+            i <<= 1
             try:
                 if self.get_state(Piece.positions[i] + coo):
-                    pattern |= (1 << i)
+                    pattern + 1
             except ValueError:
                 continue
         return pattern
