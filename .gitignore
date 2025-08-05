@@ -3,7 +3,16 @@
 
 ### Python Cache ###
 __pycache__/
+*.pyc
 .pyc
 
 ### Private Algos ###
 priv/
+
+### Trained Models ###
+.keras
+.h5
+*.keras
+*.h5
+*/*.keras
+*/*.h5
