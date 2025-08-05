@@ -19,7 +19,7 @@ training_path = ['hpyhexml_data/data/train/nrsearchrank/5-1/0.txt',
                  'hpyhexml_data/data/train/nrsearchrank/5-1/6.txt',
                  'hpyhexml_data/data/train/nrsearchrank/5-1/7.txt']
 testing_path = ['hpyhexml_data/data/test/nrsearchrank/5-1.txt']
-initial_lr = 1e-4
+initial_lr = 0.5e-4
 epochs = 100
 batch_size = 64
 clipnorm = 0.8
@@ -86,7 +86,7 @@ for path in training_path:
     print(f"Loading {path}...")
     training_data += load_training_data(path)
 np.random.shuffle(training_data)
-print(f"Loaded {len(training_data)} testing samples.")
+print(f"Loaded {len(training_data)} training samples.")
 print(f"First training sample: \n{training_data[0]}\n")
 
 # Load testing data
@@ -96,8 +96,8 @@ for path in testing_path:
     print(f"Loading {path}...")
     testing_data += load_training_data(path)
 np.random.shuffle(testing_data)
-print(f"First testing sample: \n{testing_data[0]}\n")
 print(f"Loaded {len(testing_data)} testing samples.")
+print(f"First testing sample: \n{testing_data[0]}\n")
 print()
 
 # Parse training data
@@ -112,7 +112,7 @@ for sample in training_data:
 
 x_train = np.array(x_train)
 y_train = np.array(y_train)
-print(f"Parsed {len(x_train)} testing samples.")
+print(f"Parsed {len(x_train)} training samples.")
 print(f"First training sample: \nInput: \n{x_train[0]}\nOutput: \n{y_train[0]}")
 
 # Parse testing data
