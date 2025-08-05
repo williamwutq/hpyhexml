@@ -30,7 +30,7 @@ def predict_data(model: keras.Model, engine: HexEngine, queue: list[Piece]) -> t
     result_hex = engine.coordinate_block(int(max_index))
     return (0, result_hex) # we only have one piece, so the index is always 0
 
-def create_model_predictor(model_path, func_name):
+def create_model_predictor(model_path: str, func_name: str) -> callable:
     """
     Dynamically create a named prediction function that loads a model and calls predict_data.
 
