@@ -159,9 +159,7 @@ def flatten_single_desired(engine: HexEngine, desired: list[tuple[int, Hex]],
     if not isinstance(engine, HexEngine):
         raise TypeError("engine must be an instance of HexEngine")
     if not isinstance(desired, list) or not all(isinstance(d, tuple) and len(d) == 2 for d in desired):
-        raise TypeError("desired must be a tuple of (piece_index, Hex)")
-    if not isinstance(desired[0], int) or not isinstance(desired[1], Hex):
-        raise TypeError("desired must be a tuple of (int, Hex)")
+        raise TypeError("desired must be a list of tuples of (piece_index, Hex)")
     # Create an empty array filled with zeros
     output = [0.0] * len(engine)
     for index in range(len(desired)):
