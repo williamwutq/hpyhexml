@@ -341,7 +341,7 @@ class Piece:
     """
     __slots__ = ('__states',)
     __cache = {}
-    positions = [Hex(-1, -1), Hex(-1, 0), Hex(0, -1), Hex(0, 0), Hex(0, 1), Hex(1, 0), Hex(1, 1)]
+    positions = (Hex(-1, -1), Hex(-1, 0), Hex(0, -1), Hex(0, 0), Hex(0, 1), Hex(1, 0), Hex(1, 1))
 
     def __new__(cls, states: Union[list[bool], int] = None) -> 'Piece':
         if isinstance(states, int):
