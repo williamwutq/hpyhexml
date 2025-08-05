@@ -65,7 +65,11 @@ def benchmark(alg, engine_radius: int, queue_size: int,
         print(f"-- Benchmarking complete --")
         print(f"Algorithm used: {alg.__name__}")
         print(f"Total run time: {time() - time_start:.4f} seconds")
-        print(f"Average   time: {(time() - time_start) / sum_result[0]:.4f} seconds")
+        if sum_result[0] == 0:
+            avg_time = 0
+        else:
+            avg_time = (time() - time_start) / sum_result[0]
+        print(f"Average   time: {avg_time:.4f} seconds")
         print(f"Max     result: {max_result[0]}, {max_result[1]}")
         print(f"Min     result: {min_result[0]}, {min_result[1]}")
         print(f"Average result: {sum_result[0] / eval_times}, {sum_result[1] / eval_times}")
