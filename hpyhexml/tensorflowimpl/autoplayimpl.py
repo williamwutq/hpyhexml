@@ -1,7 +1,7 @@
 import keras
 from hpyhex.hex import HexEngine, Piece, Hex
 import numpy as np
-from . import hex as hx
+from .. import hex as hx
 
 def predict_data(model: keras.Model, engine: HexEngine, queue: list[Piece]) -> tuple[int, Hex]:
     """
