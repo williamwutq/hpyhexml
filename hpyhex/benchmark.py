@@ -106,7 +106,7 @@ def compare(alg1, alg2, engine_radius: int, queue_size: int,
     count = 0
     t = 0
     while count < eval_times:
-        g = game.Game(engine_radius, queue_size, alg1 if t % 2 == 0 else alg2)
+        g = game.Game(engine_radius, queue_size)
         while not g.end:
             try:
                 index1, coord1 = alg1(g.engine, g.queue)
