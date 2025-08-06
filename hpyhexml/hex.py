@@ -1,9 +1,22 @@
 from hpyhex.hex import HexEngine, Piece, Hex
 from random import random
+from math import exp
 
 __all__ = ['sigmoid_like', 'non_negative', 'non_positive', 'softmax_rank_score',
            'flatten_engine', 'flatten_queue', 'flatten_piece',
            'flatten_single_desired', 'label_single_desired',]
+
+def gaussian(x, c=1.0):
+    '''
+    Simplified Gaussian function.
+    
+    Parameters:
+        x (float): The input value to evaluate.
+        c (float): The inverse of standard deviation of the Gaussian. Default is 1.0.
+    Returns:
+        float: The output value, which is always between 0.0 and 1.0, and approaches 0 as x increases.
+    '''
+    return exp(-(x * c) ** 2)
 
 def sigmoid_like(x, k=1.0, p=2.0):
     '''
@@ -86,6 +99,35 @@ def softmax_rank_score(rank, length) -> float:
         return 2 ** -rank
     else:
         return 2 ** (-rank - 1)
+
+def gaussian_softmax_rank_score(rank, length):
+    '''
+    Use gaussian to compute the soft label score for a given rank position in categorical cross-entropy.
+
+    This function is guaranteed to be able to return values that add up to 1.0, if the input and iteration process are correct.
+        
+    Scoring Rules:
+    - Rank 0 gets the highest score.
+    - Each subsequent rank receives a score based on the Gaussian function.
+
+    Parameters:
+        rank (int): The rank position of the piece, starting from 0.
+        length (int): The total number of pieces in the engine.
+    Returns:
+        score (float): The score for the given rank position.
+    Raises:
+        ValueError: If length is 0, or if rank is larger than or equal to length.
+    '''
+    if length == 0:
+        raise ValueError("Length cannot be 0")
+    elif rank >= length:
+        raise ValueError("Rank cannot be larger than or equal to length")
+    # Compute unnormalized Gaussian scores for all ranks
+    scores = [exp(-r ** 2) for r in range(length)]
+    
+    # Normalize scores to sum up to 1
+    total = sum(scores)
+    return scores[rank] / total
 
 def flatten_engine(engine: HexEngine) -> list[float]:
     '''
