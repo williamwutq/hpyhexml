@@ -157,12 +157,17 @@ def create_model():
         BatchNormalization(),
         Activation('relu'),
 
-        Dense(384, activation=None, kernel_regularizer=l2(2e-7)),
+        Dense(512, activation=None, kernel_regularizer=l2(2e-7)),
         BatchNormalization(),
         Activation('relu'),
         Dropout(0.05),
 
-        Dense(384, activation=None, kernel_regularizer=l2(2e-7)),
+        Dense(768, activation=None, kernel_regularizer=l2(1e-6)),
+        BatchNormalization(),
+        Activation('relu'),
+        Dropout(0.08),
+
+        Dense(512, activation=None, kernel_regularizer=l2(2e-7)),
         BatchNormalization(),
         Activation('relu'),
         Dropout(0.05),
@@ -178,16 +183,25 @@ def create_model():
     optimizer = Adam(learning_rate=initial_lr, clipnorm=clipnorm)
     model.compile(optimizer=optimizer, loss="categorical_crossentropy", metrics=['accuracy', TopKCategoricalAccuracy(k=5)])
     return model
-def cosine_decay_schedule(initial_lr, epochs):
-    return keras.optimizers.schedules.CosineDecay(
-        initial_learning_rate=initial_lr,
-        decay_steps=epochs,
-        alpha=0.0
-    )
+def schedule_with_warmup_and_constant(initial_lr, epochs):
+    warmup_epochs = 2 # max(1, epochs // 10)
+    constant_epochs = max(1, epochs // 10)
+    decay_epochs = epochs - warmup_epochs - constant_epochs
+
+    def lr_schedule(epoch):
+        if epoch < warmup_epochs:
+            return initial_lr * (epoch + 1) / warmup_epochs
+        elif epoch < warmup_epochs + constant_epochs:
+            return initial_lr
+        else:
+            decay_epoch = epoch - warmup_epochs - constant_epochs
+            cosine_decay = 0.5 * (1 + np.cos(np.pi * decay_epoch / decay_epochs))
+            return initial_lr * cosine_decay
+    return lr_schedule
 cosine_scheduler = keras.callbacks.LearningRateScheduler(
-    lambda epoch: float(cosine_decay_schedule(initial_lr, epochs)(epoch).numpy())
+    schedule_with_warmup_and_constant(initial_lr, epochs)
 )
-early_stopping = keras.callbacks.EarlyStopping(monitor='val_loss', patience=4, restore_best_weights=True)
+early_stopping = keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
 if load_from:
     print(f"Loading model from {load_from} to be saved as {save_as}...")
     model = keras.models.load_model(load_from)
@@ -195,7 +209,7 @@ else:
     print(f"Creating model to be saved as {save_as}...")
     model = create_model()
 print(f"Start training with {epochs} epochs and initial learning rate of {initial_lr}...")
-model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, validation_split=0.1, callbacks=[early_stopping])
+model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, validation_split=0.1, callbacks=[early_stopping, cosine_scheduler])
 print("Training complete.")
 # Save the model for future use
 model.save(save_as)
