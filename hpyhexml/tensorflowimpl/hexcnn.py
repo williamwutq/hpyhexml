@@ -65,6 +65,17 @@ class HexConv(Layer):
     maps = {} # Map length to precomputed neighbor index map
 
     def __init__(self, output_dim, **kwargs):
+        '''
+        Initialize the HexConv layer with the specified output dimension.
+
+        The output dimension should be defined here as the number of output features for the convolution operation.
+        The input dimension is determined by the input shape during the build phase.
+
+        Parameters:
+            output_dim (int): The number of output features for the convolution operation.
+        Raises:
+            ValueError: If the output dimension is not a positive integer.
+        '''
         super().__init__(**kwargs)
         self.output_dim = output_dim
         self.indices_cache = {}  # Cache for indices to avoid recomputation, starts empty
