@@ -64,19 +64,33 @@ class HexConv(Layer):
     '''
     maps = {} # Map length to precomputed neighbor index map
 
-    def __init__(self, output_dim, **kwargs):
+    def __init__(self, output_dim: int, shrink: bool=False, **kwargs):
         '''
         Initialize the HexConv layer with the specified output dimension.
 
         The output dimension should be defined here as the number of output features for the convolution operation.
         The input dimension is determined by the input shape during the build phase.
 
+        Shrink is a boolean parameter that determines whether to apply shrinking to the output. When set to True, 
+        the output hexagonal grid will be shrunken to a smaller radius. For example, if the input has a radius of 4 (37 blocks),
+        setting shink to True will reduce the output radius to 3 (19 blocks). This is natural for convolutional layers.
+        When set to False, the output will have the same radius as the input, but when encountering invalid neighbors,
+        their values will be padded with zeros.
+
+        Because of the nature of convolutional layers, the shrink parameter does not affect the weights.
+
         Parameters:
             output_dim (int): The number of output features for the convolution operation.
+            shink (bool): Whether to apply shinking to the output. Defaults to False.
         Raises:
             ValueError: If the output dimension is not a positive integer.
         '''
+        if not isinstance(output_dim, int) or output_dim <= 0:
+            raise ValueError(f"Invalid output dimension: {output_dim}. Must be a positive integer.")
+        if not isinstance(shrink, bool):
+            raise ValueError(f"Invalid shrink value: {shrink}. Must be a boolean.")
         super().__init__(**kwargs)
+        self.shrink = shrink
         self.output_dim = output_dim
         self.indices_cache = {}  # Cache for indices to avoid recomputation, starts empty
         self.kernel_size = 7  # fixed, due to 7-point Piece.positions
@@ -126,10 +140,15 @@ class HexConv(Layer):
 
         Invalid neighbors (with index -1) are masked to zero in the output.
 
+        If the instance setting `shrink` to True, the output will be shrunken to a smaller radius,
+        meaning that only valid neighbors will be included in the output.
+        If `shrink` is False, the output will have the same radius as the input,
+        and invalid neighbors will be zeroed out.
+
         Parameters:
             inputs (tf.Tensor): Input tensor of shape (batch_size, num_blocks, in_features).
         Returns:
-            tf.Tensor: Output tensor of shape (batch_size, num_blocks, output_dim).
+            tf.Tensor: Output tensor of shape (batch_size, num_blocks or shrunken, output_dim).
         Raises:
             ValueError: If the number of blocks in the input tensor is not valid.
         '''
@@ -172,6 +191,22 @@ class HexConv(Layer):
         This method repopulates the indices cache for the specified number of blocks,
         ensuring that the neighbor indices are up-to-date and valid for the hexagonal grid structure.
 
+        Note:
+            The result produced by this method is dependent on the `shrink` parameter. Whether the grid
+            is shrunken or not will affect the indices that are returned. Since the parameter should be
+            set during initialization for the entire layer, it is not necessary to be able to adapt dynamically
+            to different behaviors.
+
+            When `shrink` is set to True, the output hexagonal grid will be shrunken to a smaller radius.
+            This is achieved by requiring that all indices in the neighbor map are valid (not -1) for them to be included.
+            For example, if the input has a radius of 4 (37 blocks), setting `shrink` to True will reduce the output radius to 3 (19 blocks).
+            This is natural for convolutional layers.
+
+            When `shrink` is set to False, the output will have the same radius as the input, and this method will set the indices of invalid
+            neighbors to -1, allowing them to be included in the output but masked out later.
+
+        All results are cached in the `indices_cache` attribute of the HexConv instance for future use.
+
         Parameters:
             num_blocks (int): The number of blocks in the hexagonal grid.
         Raises:
@@ -194,10 +229,13 @@ class HexConv(Layer):
             neighbor_map = self.maps[num_blocks]
         indices_list = []
         for k in range(self.kernel_size):
-            indices = [
-                neighbor_map[i][k] if i in neighbor_map else -1
-                for i in range(num_blocks)
-            ]
+            indices = []
+            for i in range(num_blocks):
+                # Add into indices if exist in the neighbor map and,
+                # if shrink is required, require that all indices are valid (not -1)
+                # or if shrink is not required, allow -1 indices, and we add them as -1s
+                if i in neighbor_map and (all(idx != -1 for idx in neighbor_map[i]) or not self.shrink):
+                    indices.append(neighbor_map[i][k])
             indices_list.append(tf.constant(indices, dtype=tf.int32))
         self.indices_cache[num_blocks] = indices_list
         return indices_list
