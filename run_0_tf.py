@@ -26,6 +26,7 @@ clipnorm = 0.8
 
 print("\nStart training script...")
 import time
+import os
 print(f"""
 Before proceeding, ensure the following configurations are correct:\n
 - TensorFlow and Keras are installed.
@@ -51,6 +52,14 @@ response = input().strip().lower()
 if response != 'y' and response:
     print("Training aborted.")
     exit(0)
+
+if os.path.exists(save_as):
+    print(f"Warning: The file '{save_as}' already exists and will be overwritten.")
+    print("Do you want to proceed? y/[n]: ", end="")
+    response = input().strip().lower()
+    if response != 'y' or not response:
+        print("Training aborted to avoid overwriting the existing file.")
+        exit(0)
 
 print("\nImporting numpy...")
 import numpy as np
