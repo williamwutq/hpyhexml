@@ -116,26 +116,8 @@ class HexConv(Layer):
             trainable=True,
             name="hex_bias"
         )
-
-        if num_blocks_int not in self.maps:
-            # If neighbor_map is not precomputed for this number of blocks, compute it
-            radius = get_radius_from_blocks(num_blocks_int)
-            if radius == -1:
-                raise ValueError(f"Invalid number of blocks: {num_blocks_int}. Cannot determine radius.")
-            else:
-                neighbor_map = precompute_neighbor_index_map(radius)
-                self.maps[num_blocks_int] = neighbor_map
-        else:
-            # Use precomputed map
-            neighbor_map = self.maps[num_blocks_int]
-        indices_list = []
-        for k in range(self.kernel_size):
-            indices = [
-                neighbor_map[i][k] if i in neighbor_map else -1
-                for i in range(num_blocks_int)
-            ]
-            indices_list.append(tf.constant(indices, dtype=tf.int32))
-        self.indices_cache[num_blocks_int] = indices_list
+        
+        self.__recompute_indices(num_blocks_int)  # Precompute indices for the given number of blocks
 
 
     def call(self, inputs):
@@ -155,27 +137,7 @@ class HexConv(Layer):
 
         # Ensure indices are valid for the current number of blocks
         if num_blocks_int not in self.indices_cache:
-            # Recompute map
-            if num_blocks_int not in self.maps:
-                # If neighbor_map is not precomputed for this number of blocks, compute it
-                radius = get_radius_from_blocks(num_blocks_int)
-                if radius == -1:
-                    raise ValueError(f"Invalid number of blocks: {num_blocks_int}. Cannot determine radius.")
-                else:
-                    neighbor_map = precompute_neighbor_index_map(radius)
-                    self.maps[num_blocks_int] = neighbor_map
-            else:
-                # Use precomputed map
-                neighbor_map = self.maps[num_blocks_int]
-            # Recompute indices
-            indices_list = []
-            for k in range(self.kernel_size):
-                indices = [
-                    neighbor_map[i][k] if i in neighbor_map else -1
-                    for i in range(num_blocks_int)
-                ]
-                indices_list.append(tf.constant(indices, dtype=tf.int32))
-            self.indices_cache[num_blocks_int] = indices_list
+            indices_list = self.__recompute_indices(self, num_blocks_int)
         else:
             indices_list = self.indices_cache[num_blocks_int]
 
@@ -203,6 +165,42 @@ class HexConv(Layer):
 
         result = tf.add_n(outputs) + self.bias
         return result  # shape: (batch, num_blocks, output_dim)
+    
+    def __recompute_indices(self, num_blocks: int):
+        '''
+        Recompute the neighbor indices for the given number of blocks.
+        This method repopulates the indices cache for the specified number of blocks,
+        ensuring that the neighbor indices are up-to-date and valid for the hexagonal grid structure.
+
+        Parameters:
+            num_blocks (int): The number of blocks in the hexagonal grid.
+        Raises:
+            ValueError: If the number of blocks is not a positive integer is not valid for hexagonal grids.
+        Returns:
+            list[tf.Tensor]: A list of tensors containing the indices for each neighbor position.
+        '''
+        if not isinstance(num_blocks, int) or num_blocks <= 0:
+            raise ValueError(f"Invalid number of blocks: {num_blocks}. Must be a positive integer.")
+        if num_blocks not in self.maps:
+            # If neighbor_map is not precomputed for this number of blocks, compute it
+            radius = get_radius_from_blocks(num_blocks)
+            if radius == -1:
+                raise ValueError(f"Invalid number of blocks: {num_blocks}. Cannot determine radius.")
+            else:
+                neighbor_map = precompute_neighbor_index_map(radius)
+                self.maps[num_blocks] = neighbor_map
+        else:
+            # Use precomputed map
+            neighbor_map = self.maps[num_blocks]
+        indices_list = []
+        for k in range(self.kernel_size):
+            indices = [
+                neighbor_map[i][k] if i in neighbor_map else -1
+                for i in range(num_blocks)
+            ]
+            indices_list.append(tf.constant(indices, dtype=tf.int32))
+        self.indices_cache[num_blocks] = indices_list
+        return indices_list
 
 
 # Add common maps for all instances of HexConv
