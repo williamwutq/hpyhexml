@@ -5,6 +5,7 @@ which is essential for defining the convolutional operations in a hexagonal grid
 '''
 
 import tensorflow as tf
+import keras
 from keras.layers import Layer
 from hpyhex.hex import Hex, HexEngine
 
@@ -89,7 +90,16 @@ class HexConv(Layer):
             raise ValueError(f"Invalid output dimension: {output_dim}. Must be a positive integer.")
         if not isinstance(shrink, bool):
             raise ValueError(f"Invalid shrink value: {shrink}. Must be a boolean.")
+        # Handle activation and regularizers, accept both identifier strings and objects
+        activation = kwargs.pop('activation', None)
+        self.activation = keras.activations.get(activation) if activation is not None else None
+        kernel_regularizer = kwargs.pop('kernel_regularizer', None)
+        self.kernel_regularizer = keras.regularizers.get(kernel_regularizer) if kernel_regularizer is not None else None
+        activity_regularizer = kwargs.pop('activity_regularizer', None)
+        self.activity_regularizer = keras.regularizers.get(activity_regularizer) if activity_regularizer is not None else None
+        # Initialize the parent class
         super().__init__(**kwargs)
+        # Initialize instance
         self.shrink = shrink
         self.output_dim = output_dim
         self.indices_cache = {}  # Cache for indices to avoid recomputation, starts empty
@@ -121,7 +131,8 @@ class HexConv(Layer):
             shape=(self.kernel_size, self.in_features, self.output_dim),
             initializer="glorot_uniform",
             trainable=True,
-            name="hex_kernel_weights"
+            name="hex_kernel_weights",
+            regularizer=self.kernel_regularizer
         )
 
         self.bias = self.add_weight(
@@ -182,7 +193,17 @@ class HexConv(Layer):
             proj = tf.linalg.matmul(gathered[k], self.kernel_weights[k])  # (batch, num_blocks, output_dim)
             outputs.append(proj)
 
+        # Sum the outputs and add bias
         result = tf.add_n(outputs) + self.bias
+
+        # Apply activation if specified
+        if self.activation is not None:
+            result = self.activation(result)
+
+        # Apply activity regularization if specified
+        if self.activity_regularizer is not None:
+            self.add_loss(self.activity_regularizer(result))
+        
         return result  # shape: (batch, num_blocks, output_dim)
     
     def __recompute_indices(self, num_blocks: int):
