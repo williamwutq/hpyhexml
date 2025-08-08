@@ -577,20 +577,27 @@ class HexEngine:
         Returns:
             int: The radius of the hexagonal grid, or -1 if the length is invalid.
         """
-        valid_pairs = {
-            7: 2, 19: 3, 37: 4, 61: 5, 91: 6, 127: 7, 169: 8, 217: 9, 271: 10, 331: 11, 397: 12, 469: 13
-        }
-        if length <= 1:
+        # Use a static variable to ensure all calls refer to the same dict
+        if not hasattr(HexEngine.solve_radius, "__valid_pairs"):
+            HexEngine.solve_radius.__valid_pairs = {
+            1: 1, 7: 2, 19: 3, 37: 4, 61: 5, 91: 6, 127: 7, 169: 8, 217: 9, 271: 10, 331: 11, 397: 12, 469: 13
+            }
+        __valid_pairs = HexEngine.solve_radius.__valid_pairs
+        if length < 1:
             return -1
         if 0 <= length <= 546:
-            v = valid_pairs.get(length, -1)
-            return v if v is not None else -1
+            return __valid_pairs.get(length, -1)
         if length % 3 != 1:
             return -1
+        if length in __valid_pairs:
+            return __valid_pairs[length]
         target = (length - 1) // 3
         for x in range(1, target + 1):
             if x * (x - 1) == target:
+                __valid_pairs[length] = x
                 return x
+            if x * (x - 1) > target:
+                break
         return -1
     
     def __init__(self, arg: Union[int, list[bool], str]) -> None:
