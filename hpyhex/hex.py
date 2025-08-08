@@ -625,8 +625,8 @@ class HexEngine:
             self.__states = [c == '1' or c == 'X' for c in arg]
         elif isinstance(arg, list):
             if all(isinstance(s, bool) for s in arg):
-                radius = self.solve_radius(len(arg))
-                if radius < 1:
+                self.__radius = self.solve_radius(len(arg))
+                if self.__radius < 1:
                     raise ValueError("Invalid length for hexagonal grid")
                 self.__states = arg
             else:
