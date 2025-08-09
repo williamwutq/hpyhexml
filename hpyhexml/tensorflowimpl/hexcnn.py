@@ -54,7 +54,7 @@ def get_radius_from_blocks(length: int) -> int:
     '''
     return HexEngine.solve_radius(length)
 
-
+@keras.saving.register_keras_serializable()
 class HexConv(Layer):
     '''
     A Keras layer that implements hexagonal convolution using precomputed neighbor indices.
@@ -206,6 +206,27 @@ class HexConv(Layer):
         
         return result  # shape: (batch, num_blocks or shrunken, output_dim)
     
+    def get_config(self):
+        '''
+        Get the configuration of the layer for serialization.
+
+        This method returns a dictionary containing the configuration of the layer,
+        including the output dimension, shrink parameter, and other settings.
+        
+        Returns:
+            dict: A dictionary containing the configuration of the layer.
+        '''
+        config = super().get_config()
+        config.update({
+            'output_dim': self.output_dim,
+            'shrink': self.shrink,
+            'kernel_size': self.kernel_size,
+            'activation': keras.activations.serialize(self.activation),
+            'kernel_regularizer': keras.regularizers.serialize(self.kernel_regularizer),
+            'activity_regularizer': keras.regularizers.serialize(self.activity_regularizer)
+        })
+        return config
+    
     def __recompute_indices(self, num_blocks: int):
         '''
         Recompute the neighbor indices for the given number of blocks.
@@ -261,7 +282,7 @@ class HexConv(Layer):
         self.indices_cache[num_blocks] = indices_list
         return indices_list
 
-
+@keras.saving.register_keras_serializable()
 class HexDynamicConv(Layer):
     '''
     A Keras layer that implements hexagonal convolution using precomputed neighbor indices.
@@ -456,6 +477,27 @@ class HexDynamicConv(Layer):
             self.add_loss(self.activity_regularizer(result))
         
         return result  # shape: (batch, num_blocks or shrunken, output_dim)
+    
+    def get_config(self):
+        '''
+        Get the configuration of the layer for serialization.
+
+        This method returns a dictionary containing the configuration of the layer,
+        including the output dimension, shrink parameter, and other settings.
+        
+        Returns:
+            dict: A dictionary containing the configuration of the layer.
+        '''
+        config = super().get_config()
+        config.update({
+            'output_dim': self.output_dim,
+            'shrink': self.shrink,
+            'kernel_size': self.kernel_size,
+            'activation': keras.activations.serialize(self.activation),
+            'kernel_regularizer': keras.regularizers.serialize(self.kernel_regularizer),
+            'activity_regularizer': keras.regularizers.serialize(self.activity_regularizer)
+        })
+        return config
     
     def __recompute_indices(self, num_blocks: int):
         '''
