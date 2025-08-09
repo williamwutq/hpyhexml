@@ -161,6 +161,7 @@ from keras.models import Model
 from keras.layers import Dense, Input, Dropout, BatchNormalization, Activation, Reshape, Lambda, Flatten
 from keras.optimizers import Adam
 from keras.regularizers import l2
+keras.config.enable_unsafe_deserialization()
 print("Importing hpyhexml.tensorflowimpl.hexcnn...")
 from hpyhexml.tensorflowimpl.hexcnn import HexConv, HexDynamicConv
 
@@ -266,7 +267,7 @@ class SaveEveryEpoch(keras.callbacks.Callback):
 
 if load_from:
     print(f"Loading model from {load_from} to be saved as {save_as}...")
-    model = keras.models.load_model(load_from)
+    model = keras.models.load_model(load_from, custom_objects={"HexDynamicConv": HexDynamicConv, "HexConv": HexConv})
 else:
     print(f"Creating model to be saved as {save_as}...")
     model = create_model()
