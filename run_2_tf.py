@@ -57,6 +57,8 @@ print("If the configurations are correct, script will execute automatically.")
 print("Anytime, Press Ctrl + C to abort.")
 print("Note: This script train a CNN model, which may take a long time to run. By default, auto-saving is enabled every epoch.")
 print(f"      To recover from unexpected termination of the process, check keras files with name similar to {save_as}.")
+print("Warning: This script contain memory leak of unknown origin, which may crush the system if run for too long.")
+print("         Please monitor your system memory usage and close the process when necessary. Model is saved every epoch.")
 print("Proceed to data loading [y]/n: ", end="")
 response = input().strip().lower()
 if response != 'y' and response:
