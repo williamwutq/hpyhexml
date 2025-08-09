@@ -26,6 +26,7 @@ training_path = ['hpyhexml_data/data/train/nrsearchrank/5-1/0.txt',
                  'hpyhexml_data/data/train/nrsearchrank/5-1/15.txt']
 testing_path = ['hpyhexml_data/data/test/nrsearchrank/5-1.txt']
 initial_lr = 4e-4
+epoch_offset = 0 # The number of epochs already trained
 epochs = 80
 batch_size = 64
 clipnorm = 1.2
@@ -47,6 +48,7 @@ Before proceeding, ensure the following configurations are correct:\n
 - Intended engine radius: 5
 - Intended queue length: 1
 - Intended top choices: <From data>
+- Intended initial epoch: {epoch_offset}
 - Intended epochs: {epochs}
 - Intended batch size: {batch_size}
 - Intended initial learning rate: {initial_lr}
@@ -272,7 +274,7 @@ else:
     print(f"Creating model to be saved as {save_as}...")
     model = create_model()
 print(f"Start training with {epochs} epochs and initial learning rate of {initial_lr}...")
-model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, validation_split=0.1, callbacks=[early_stopping, cosine_scheduler, SaveEveryEpoch(save_as)],)
+model.fit(x_train, y_train, initial_epoch = epoch_offset, epochs=epochs, batch_size=batch_size, validation_split=0.1, callbacks=[early_stopping, cosine_scheduler, SaveEveryEpoch(save_as)],)
 print("Training complete.")
 # Save the model for future use
 model.save(save_as)
