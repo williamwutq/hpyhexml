@@ -2,6 +2,7 @@ import keras
 from hpyhex.hex import HexEngine, Piece, Hex
 import numpy as np
 from .. import hex as hx
+from .hexcnn import HexDynamicConv, HexConv
 
 def predict_data(model: keras.Model, engine: HexEngine, queue: list[Piece]) -> tuple[int, Hex]:
     """
@@ -57,7 +58,7 @@ def create_model_predictor(model_path: str, func_name: str) -> callable:
     func_name = func_name.strip()
     if not func_name:
         raise ValueError("func_name cannot be an empty string")
-    model = keras.models.load_model(model_path)
+    model = keras.models.load_model(model_path, custom_objects={"HexDynamicConv": HexDynamicConv, "HexConv": HexConv})
 
     def predictor(engine, queue):
         try:
