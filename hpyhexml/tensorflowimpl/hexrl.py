@@ -1,4 +1,5 @@
 import tensorflow as tf
+from .. import hex as hx
 
 class SinglePieceBatchedRLTrainer:
     '''
@@ -6,21 +7,21 @@ class SinglePieceBatchedRLTrainer:
     Uses REINFORCE with a baseline from the critic. Built for single-piece queues or single-piece virtual queues.
     '''
 
-    def __init__(self, batched_game, agent_fn, critic_fn, agent_optimizer, critic_optimizer, gamma=0.99):
+    def __init__(self, batched_game, agent, critic, agent_optimizer, critic_optimizer, gamma=0.99):
         '''
         Initializes the trainer with a batched game environment, agent and critic functions, optimizers, and discount factor.
 
         Parameters:
             batched_game (BatchedGame): The game environment (parallelized).
-            agent_fn (callable): Function taking (engines, queues) -> action logits (tf.Tensor of shape [batch, num_actions]).
-            critic_fn (callable): Function taking (engines, queues) -> value predictions (tf.Tensor of shape [batch]).
+            agent (tf.keras.Model): Model taking (tf.Tensor) -> action logits (tf.Tensor of shape [batch, num_actions]).
+            critic (tf.keras.Model): Model taking (tf.Tensor) -> value predictions (tf.Tensor of shape [batch]).
             agent_optimizer (tf.keras.optimizers.Optimizer)
             critic_optimizer (tf.keras.optimizers.Optimizer)
             gamma (float): Discount factor.
         '''
         self.env = batched_game
-        self.agent_fn = agent_fn
-        self.critic_fn = critic_fn
+        self.agent = agent
+        self.critic = critic
         self.agent_optimizer = agent_optimizer
         self.critic_optimizer = critic_optimizer
         self.gamma = gamma
@@ -41,7 +42,8 @@ class SinglePieceBatchedRLTrainer:
 
         def algorithm_wrapper(engines, queues):
             # Policy forward pass
-            logits = self.agent_fn(engines, queues)
+            inputs = self.__env_to_input(engines, queues)
+            logits = self.agent(inputs, training=True)
             action_dist = tf.random.categorical(logits, 1)
             action_dist = tf.squeeze(action_dist, axis=1)
             # Log-prob for policy loss
@@ -49,7 +51,7 @@ class SinglePieceBatchedRLTrainer:
             chosen_logp = tf.gather(logp_all, action_dist, batch_dims=1)
             log_probs.append(chosen_logp)
             # Value prediction
-            value_pred = self.critic_fn(engines, queues)
+            value_pred = self.critic(inputs, training=True)
             values.append(value_pred)
             # Return moves
             moves = self.__action_to_moves(action_dist, engines, queues)
@@ -81,14 +83,14 @@ class SinglePieceBatchedRLTrainer:
         # Update policy
         with tf.GradientTape() as tape:
             policy_loss = -tf.reduce_mean(log_probs * advantages)
-        grads = tape.gradient(policy_loss, self.agent_fn.trainable_variables)
-        self.agent_optimizer.apply_gradients(zip(grads, self.agent_fn.trainable_variables))
+        grads = tape.gradient(policy_loss, self.agent.trainable_variables)
+        self.agent_optimizer.apply_gradients(zip(grads, self.agent.trainable_variables))
 
         # Update critic (MSE loss on returns)
         with tf.GradientTape() as tape:
             value_loss = tf.reduce_mean(tf.square(values - returns))
-        grads = tape.gradient(value_loss, self.critic_fn.trainable_variables)
-        self.critic_optimizer.apply_gradients(zip(grads, self.critic_fn.trainable_variables))
+        grads = tape.gradient(value_loss, self.critic.trainable_variables)
+        self.critic_optimizer.apply_gradients(zip(grads, self.critic.trainable_variables))
 
         return {
             "policy_loss": float(policy_loss),
@@ -106,10 +108,10 @@ class SinglePieceBatchedRLTrainer:
         for t in reversed(range(T)):
             running_return = rewards[t] + gamma * running_return * masks[t]
             returns = returns.write(t, running_return)
-        returns = tf.transpose(returns.stack(), perm=[0, 1])
+        returns = tf.transpose(returns.stack(), perm=[1, 0])
         return returns
     
-    def __action_to_moves(self, action_indices, queues, engines):
+    def __action_to_moves(self, action_indices, engines, queues):
         '''
         Convert discrete action indices to (piece_index, Hex position) for a batch of games.
         No masking of impossible moves.
@@ -127,3 +129,23 @@ class SinglePieceBatchedRLTrainer:
             result_hex = engines[batch_idx].coordinate_block(int(action))
             moves.append((0, result_hex)) # single-piece queue, so always 0
         return moves
+    
+    def __env_to_input(self, engines, queues):
+        '''
+        Convert the environment state to input for the agent and critic.
+        
+        Parameters:
+            engines (list[HexEngine]): List of HexEngine instances.
+            queues (list[list[Piece]]): List of piece queues.
+        
+        Returns:
+            tuple: (engine_inputs, queue_inputs)
+        '''
+        tensor_inputs = []
+        for i in range(len(engines)):
+            data = hx.flatten_engine(engines[i]) + hx.flatten_queue(queues[i])
+            # Convert to tensor
+            data = tf.convert_to_tensor(data, dtype=tf.float32)
+            tensor_inputs.append(data)
+        # Stack all inputs into a single tensor
+        return tf.stack(tensor_inputs, axis=0)  # Shape: [batch, input_size]
