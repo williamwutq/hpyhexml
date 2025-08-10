@@ -13,6 +13,30 @@ from .hex import Piece, HexEngine, Hex
 import random
 
 
+def random_engine(radius: int) -> HexEngine:
+    '''
+    Generate a random HexEngine with a given radius. True randomness or random distribution is not guaranteed
+    as elimination is applied to the engine, reducing some instances to other instances.
+
+    This is superior than HexEngine.all_engines(radius) because it does not consume significant memory and time.
+
+    Parameters:
+        radius (int): The radius of the hexagonal game board.
+    Returns:
+        HexEngine: A new randomized HexEngine instance with the specified radius.
+    Raises:
+        TypeError: If radius is not an integer or is less than 2.
+    '''
+    if not isinstance(radius, int) and radius < 2:
+        raise TypeError("Radius must be an integer greater than 1")
+    length = 1 + 3 * radius * (radius - 1)
+    num = random.randint(0, 2 ** length - 1)
+    states = [(num >> j) & 1 == 1 for j in range(length)]
+    engine = HexEngine(states)
+    engine.eliminate()
+    return engine
+
+
 class PieceFactory:
     '''
     PieceFactory is a utility class that provides methods for creating and managing game pieces. 
