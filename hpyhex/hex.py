@@ -452,6 +452,15 @@ class Piece:
         '''
         return self.__states
     
+    @property
+    def coordinates(self) -> list[Hex]:
+        '''
+        Get the list of Hex coordinates representing the positions of the blocks in the Piece.
+        Returns:
+            list[Hex]: The list of Hex coordinates for the Piece.
+        '''
+        return [self.positions[i] for i in range(7) if self.__states[i]]
+    
     def __eq__(self, other: Union['Piece', int]) -> bool:
         '''
         Returns True if the occupancy states match, False otherwise.
@@ -510,6 +519,51 @@ class Piece:
             return count
         except ValueError:
             return 0
+
+    @classmethod
+    def all_pieces(cls) -> list['Piece']:
+        '''
+        Get a list of all possible non-empty Piece instances.
+        This method returns all cached Piece instances representing different occupancy states.
+
+        The return of this method does not guarantee that pieces are spacially contigous.
+        Returns:
+            list[Piece]: A list of all possible Piece instances.
+        '''
+        return (p for p in cls.__cache.values() if p) # Filter out empty Pieces
+    
+    @classmethod
+    def contigous_pieces(cls) -> list['Piece']:
+        '''
+        Get a list of all possible contigous Piece instances.
+        This method returns all cached Piece instances representing different occupancy states
+        that are spatially contiguous.
+
+        Returns:
+            list[Piece]: A list of all possible contigous Piece instances.
+        '''
+        result = []
+        for p in cls.__cache.values():
+            if not p:
+                continue # If piece has no blocks, skip it
+            if p.states[3]:
+                result.append(p) # If center block is occupied, it is contigous
+            elif len(p) == 1 or len(p) == 5 or len(p) == 6:
+                result.append(p) # If only one block exists, all block exists, or only one block is missing, it is contigous
+            elif len(p) == 2:
+                # If two blocks exist, check if they are adjacent
+                if (p.states[0] and (p.states[1] or p.states[2])) or (p.states[4] and (p.states[1] or p.states[6])) or (p.states[5] and (p.states[2] or p.states[6])):
+                    result.append(p)
+            elif len(p) == 4:
+                # If two blocks are missing, check if they are adjacent
+                if (not p.states[0] and not (p.states[1] and p.states[2])) or (not p.states[4] and not (p.states[1] and p.states[6])) or (not p.states[5] and not (p.states[2] and p.states[6])):
+                    result.append(p)
+            else:
+                # If three blocks exist, check if they are all adjacent
+                if (p.states[0] and p.states[1] and (p.states[2] or p.states[4])) or (p.states[2] and p.states[5] and (p.states[0] or p.states[6])) or (p.states[4] and p.states[6] and (p.states[1] or p.states[5])):
+                    result.append(p)
+        return result
+
 
 # Pre-populate the cache with all possible Piece states (0-127)
 Piece._Piece__initialize_cache()
