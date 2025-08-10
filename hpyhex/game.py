@@ -270,17 +270,21 @@ class Game:
         turn (int): The current turn number in the game.
         end (bool): Whether the game has ended.
     '''
-    def __init__(self, engine: int, queue: int) -> None:
+    def __init__(self, engine: int, queue: int, initial_turn: int = 0, initial_score: int = 0) -> None:
         '''
         Initialize the game with a game engine of radius r and game queue of length q.
 
         Parameters:
-            r (int): The radius of the hexagonal game board.
-            q (int): The length of the queue for pieces.
+            engine (HexEngine | int): The game engine to use, either as a HexEngine instance or an integer representing the radius.
+            queue (list[Piece] | int): The queue of pieces to use, either as a list of Piece instances or an integer representing the size of the queue.
+            initial_turn (int): The initial turn number of the game, default is 0.
+            initial_score (int): The initial score of the game, default is 0.
+        Returns:
+            None
         Raises:
-            ValueError: If r is less than 2 or q is less than 1.
-        Raises:
-            TypeError: If r is not an integer or q is not a list of Piece instances or an integer.
+            ValueError: If the engine radius is less than 2 or if the queue size is less than 1.
+            TypeError: If the engine is not a HexEngine instance or an integer, or if the queue is not a list of Piece instances or an integer,
+                or if initial_turn or initial_score is not a non-negative integer.
         '''
         if isinstance(engine, HexEngine):
             self.__engine = engine
@@ -298,8 +302,12 @@ class Game:
             self.__queue = [PieceFactory.generate_piece() for _ in range(queue)]
         else:
             raise TypeError("Queue must be a list of Piece instances or an integer representing the size of the queue")
-        self.__score = 0
-        self.__turn = 0
+        if not isinstance(initial_turn, int) or initial_turn < 0:
+            raise TypeError("Initial turn must be a non-negative integer")
+        if not isinstance(initial_score, int) or initial_score < 0:
+            raise TypeError("Initial score must be a non-negative integer")
+        self.__score = initial_score
+        self.__turn = initial_turn
         self.__end = False
     
     def add_piece(self, piece_index: int, coord: Hex) -> bool:
