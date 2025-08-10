@@ -1313,3 +1313,36 @@ class HexEngine:
                 p = count / pattern_total
                 entropy -= p * log2(p)
         return entropy
+    
+    @classmethod
+    def all_engines(cls, radius: int) -> list['HexEngine']:
+        '''
+        Generate all possible HexEngine instances representing valid occupancy states for a given radius.
+        All generated HexEngines will have eliminations already applied, meaning they will not contain any fully occupied lines.
+
+        For large radius values, this method may take a long time and significant resource to compute due to the exponential growth of possible states.
+        It is recommended to cache the results for specific radius values to avoid recomputation. HexEngine does not provide a dictionary for caching such data.
+
+        Parameters:
+            radius (int): The radius of the hexagonal grid for which to generate all possible HexEngines.
+        Returns:
+            list[HexEngine]: A list of HexEngine instances representing all valid occupancy states for the specified radius.
+        Raises:
+            TypeError: If radius is not an integer greater than 1. Only empty engine is valid for radius 1.
+        '''
+        if not isinstance(radius, int) or radius < 2:
+            raise TypeError("Radius must be an integer greater than 1")
+        length = 1 + 3 * radius * (radius - 1)
+        # Enumerate all 2^length binary combinations
+        result = []
+        for i in range(2 ** length):
+            # Create a HexEngine with the current binary combination
+            states = [(i >> j) & 1 == 1 for j in range(length)]
+            engine = HexEngine(states)
+            # Eliminate fully occupied lines
+            eliminated = engine.eliminate()
+            if eliminated:
+                # If any lines were eliminated, skip this engine
+                continue
+            result.append(engine)
+        return result
