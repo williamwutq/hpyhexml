@@ -6,7 +6,8 @@ For efficiency, this package provides caching for game stages and curriculum def
 '''
 
 from hpyhex.hex import HexEngine
-from random import choice
+from hpyhex.game import Game
+from random import random, choice
 
 curricula = {}
 # Format: {name -> (radius, func, cache: [HexEngine...])}
@@ -172,7 +173,15 @@ def create_curriculum(name: str, radius: int, func: callable = None) -> None:
     ```
     in which `radius` is the radius of the HexEngine instances to generate,
     and `count` is the number of HexEngine instances to generate (default is None).
+
     The function should return either a single HexEngine instance when count is None or a list of HexEngine instances.
+
+    The function can also be a function that does not support batch generation, following the signature:
+    ```python
+    def func(radius: int) -> HexEngine:
+    ```
+    in which `radius` is the radius of the HexEngine instance to generate.
+    In this case, the function will be called with the radius parameter only, and it will return a single HexEngine instance.
 
     Ideally, the function should ensure randomness in the generated HexEngine instances, but it is not required.
     If the function is not provided, the curriculum can still be created and used, but call any generation functions will raise an error.
@@ -204,3 +213,76 @@ def remove_curriculum(name: str) -> None:
     if name not in curricula:
         raise ValueError(f"Curriculum '{name}' not found.")
     del curricula[name]
+
+# Default curricula
+def algo_based_startgame(alg: callable, radius: int, queue_length: int, **kwargs) -> None:
+    '''
+    Create a curriculum for game start stage for engines of a certain radius based on an algorithm.
+    The algorithm should follow the signature:
+    ```python
+    def algorithm(engines: HexEngine, queues: list[Piece]) -> tuple[int, Hex]
+    ```
+
+    Parameters:
+        alg (callable): The algorithm to use to play the games.
+        radius (int): The radius of the HexEngine instances in this curriculum.
+        queue_length (int): The length of the queue for each game for the algorithm to use.
+    Keyword Args:
+        algorithm_name (str): The name of the algorithm to use in the curriculum. Defaults to the name of the algorithm function.
+        move_lower_bound (int): The minimum number of moves to play in the game. Defaults to radius.
+        move_upper_bound (int): The maximum number of moves to play in the game. Defaults to radius * 2.
+        custom_move_func (callable): A custom function to generate random move times. Defaults to random.
+    Raises:
+        TypeError: If parameters are not of the expected types.
+        ValueError: If the curriculum name already exists.
+    '''
+    # Parse and validate parameters
+    if not isinstance(radius, int) or radius <= 0:
+        raise TypeError("radius must be a positive integer.")
+    if not isinstance(queue_length, int) or queue_length <= 0:
+        raise TypeError("queue_length must be a positive integer.")
+    if not callable(alg):
+        raise TypeError("alg must be a callable function.")
+    algorithm_name = kwargs.get('algorithm_name', alg.__name__)
+    if not isinstance(algorithm_name, str):
+        algorithm_name = str(algorithm_name)
+    if not algorithm_name:
+        raise ValueError("algorithm_name must be a non-empty string.")
+    curriculum_name = f"startgame_{algorithm_name}_{radius}"
+    if curriculum_name in curricula:
+        raise ValueError(f"Curriculum '{curriculum_name}' already exists.")
+    move_lower_bound = kwargs.get('move_lower_bound', radius)
+    if not isinstance(move_lower_bound, int) or move_lower_bound < 0:
+        raise TypeError("move_lower_bound must be a non-negative integer.")
+    move_upper_bound = kwargs.get('move_upper_bound', radius * 2)
+    if not isinstance(move_upper_bound, int) or move_upper_bound < move_lower_bound:
+        raise TypeError("move_upper_bound must be a non-negative integer greater than or equal to move_lower_bound.")
+    custom_random = kwargs.get('custom_move_func', random)
+    if not callable(custom_random):
+        raise TypeError("custom_move_func must be a callable function.")
+    # Define function
+    def startgame_func(radius: int, count: int = None) -> HexEngine | list[HexEngine]:
+        '''
+        Generate one or more HexEngine instances for the start game stage.
+
+        Parameters:
+            radius (int): The radius of the HexEngine instance(s).
+            count (int, optional): The number of HexEngine instances to generate. If None, generate one instance.
+        Returns:
+            HexEngine or list[HexEngine]: A new HexEngine instance, or a list of HexEngine instances if count is specified.
+        '''
+        def single_engine():
+            g = Game(radius, queue_length)
+            # Get random move times between the lower and upper bounds
+            move_times = round(custom_random() * (move_upper_bound - move_lower_bound) + move_lower_bound)
+            # Play the game using the algorithm
+            for _ in range(int(move_times)):
+                if not g.make_move(alg):
+                    break
+            return g.engine
+        if count is None:
+            return single_engine()
+        else:
+            return [single_engine() for _ in range(count)]
+    # Create the curriculum
+    create_curriculum(curriculum_name, radius, startgame_func)
