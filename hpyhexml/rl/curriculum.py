@@ -6,8 +6,9 @@ For efficiency, this package provides caching for game stages and curriculum def
 '''
 
 from hpyhex.hex import HexEngine
-from hpyhex.game import Game
+from hpyhex.game import Game, random_engine
 from random import random, choice
+from copy import deepcopy as clone
 
 curricula = {}
 # Format: {name -> (radius, func, cache: [HexEngine...])}
@@ -286,3 +287,104 @@ def algo_based_startgame(alg: callable, radius: int, queue_length: int, **kwargs
             return [single_engine() for _ in range(count)]
     # Create the curriculum
     create_curriculum(curriculum_name, radius, startgame_func)
+
+def algo_based_endgame(alg: callable, radius: int, queue_length: int, **kwargs) -> None:
+    '''
+    Create a curriculum for game end stage for engines of a certain radius based on an algorithm.
+    The algorithm should follow the signature:
+    ```python
+    def algorithm(engines: HexEngine, queues: list[Piece]) -> tuple[int, Hex]
+    ```
+
+    Parameters:
+        alg (callable): The algorithm to use to play the games.
+        radius (int): The radius of the HexEngine instances in this curriculum.
+        queue_length (int): The length of the queue for each game for the algorithm to use.
+    Keyword Args:
+        algorithm_name (str): The name of the algorithm to use in the curriculum. Defaults to the name of the algorithm function.
+        move_lower_bound (int): The minimum number of moves to play in the game. Defaults to radius.
+        move_upper_bound (int): The maximum number of moves to play in the game. Defaults to radius * 2.
+        attempt_count (int): The number of attempts for the algorithm to play the game. Defaults to 10.
+        pass_percentage (float): The percentage of games that must be ended for the game to be considered endgame. Defaults to 0.5.
+        custom_move_func (callable): A custom function to generate random move times. Defaults to random.
+    Raises:
+        TypeError: If parameters are not of the expected types.
+        ValueError: If the curriculum name already exists.
+    '''
+    # Parse and validate parameters
+    if not isinstance(radius, int) or radius <= 0:
+        raise TypeError("radius must be a positive integer.")
+    if not isinstance(queue_length, int) or queue_length <= 0:
+        raise TypeError("queue_length must be a positive integer.")
+    if not callable(alg):
+        raise TypeError("alg must be a callable function.")
+    algorithm_name = kwargs.get('algorithm_name', alg.__name__)
+    if not isinstance(algorithm_name, str):
+        algorithm_name = str(algorithm_name)
+    if not algorithm_name:
+        raise ValueError("algorithm_name must be a non-empty string.")
+    curriculum_name = f"endgame_{algorithm_name}_{radius}"
+    if curriculum_name in curricula:
+        raise ValueError(f"Curriculum '{curriculum_name}' already exists.")
+    move_lower_bound = kwargs.get('move_lower_bound', radius)
+    if not isinstance(move_lower_bound, int) or move_lower_bound < 0:
+        raise TypeError("move_lower_bound must be a non-negative integer.")
+    move_upper_bound = kwargs.get('move_upper_bound', radius * 2)
+    if not isinstance(move_upper_bound, int) or move_upper_bound < move_lower_bound:
+        raise TypeError("move_upper_bound must be a non-negative integer greater than or equal to move_lower_bound.")
+    attempt_count = kwargs.get('attempt_count', 10)
+    if not isinstance(attempt_count, int) or attempt_count <= 0:
+        raise TypeError("attempt_count must be a positive integer.")
+    pass_percentage = kwargs.get('pass_percentage', 0.5)
+    if not isinstance(pass_percentage, float) or not (0 <= pass_percentage <= 1):
+        raise TypeError("pass_percentage must be a float between 0 and 1.")
+    custom_random = kwargs.get('custom_move_func', random)
+    if not callable(custom_random):
+        raise TypeError("custom_move_func must be a callable function.")
+    # Define function
+    def endgame_func(radius: int, count: int = None) -> HexEngine | list[HexEngine]:
+        '''
+        Generate one or more HexEngine instances for the end game stage.
+
+        Parameters:
+            radius (int): The radius of the HexEngine instance(s).
+            count (int, optional): The number of HexEngine instances to generate. If None, generate one instance.
+        Returns:
+            HexEngine or list[HexEngine]: A new HexEngine instance, or a list of HexEngine instances if count is specified.
+        '''
+        if count is None:
+            while True:
+                # Get a random engine
+                re = random_engine(radius)
+                ended_games = 0
+                for _ in range(attempt_count):
+                    g = Game(clone(re), queue_length)
+                    # Get random move times between the lower and upper bounds
+                    move_times = round(custom_random() * (move_upper_bound - move_lower_bound) + move_lower_bound)
+                    # Play the game using the algorithm
+                    for _ in range(int(move_times)):
+                        if not g.make_move(alg):
+                            ended_games += 1
+                            break
+                if ended_games / attempt_count >= pass_percentage:
+                    return re
+        else:
+            engines = []
+            while len(engines) < count:
+                # Get a random engine
+                re = random_engine(radius)
+                ended_games = 0
+                for _ in range(attempt_count):
+                    g = Game(clone(re), queue_length)
+                    # Get random move times between the lower and upper bounds
+                    move_times = round(custom_random() * (move_upper_bound - move_lower_bound) + move_lower_bound)
+                    # Play the game using the algorithm
+                    for _ in range(int(move_times)):
+                        if not g.make_move(alg):
+                            ended_games += 1
+                            break
+                if ended_games / attempt_count >= pass_percentage:
+                    engines.append(re)
+            return engines
+    # Create the curriculum
+    create_curriculum(curriculum_name, radius, endgame_func)
