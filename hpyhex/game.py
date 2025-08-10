@@ -332,7 +332,7 @@ class Game:
         except ValueError:
             return False
         self.__queue[piece_index] = PieceFactory.generate_piece()
-        self.__score += len(self.__engine.eliminate())
+        self.__score += len(self.__engine.eliminate()) * 5
         self.__turn += 1
         # Check whether the game has ended
         for p in PieceFactory.all_pieces():
