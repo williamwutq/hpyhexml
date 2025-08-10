@@ -113,7 +113,7 @@ def generate_engines_to_curriculum(name: str, count: int) -> list[HexEngine]:
             existing_engines.add(engine)
     return engines
 
-def add_engine_to_curriculum(name: str, engine: HexEngine):
+def add_engine_to_curriculum(name: str, engine: HexEngine) -> None:
     '''
     Adds a HexEngine instance to the curriculum cache.
     If the engine already exists in the curriculum, it will not be added again.
@@ -137,7 +137,7 @@ def add_engine_to_curriculum(name: str, engine: HexEngine):
     if engine not in curricula[name][2]:
         curricula[name][2].append(engine)
 
-def add_engines_to_curriculum(name: str, engines: list[HexEngine]):
+def add_engines_to_curriculum(name: str, engines: list[HexEngine]) -> None:
     '''
     Adds multiple HexEngine instances to the curriculum cache.
     If an engine already exists in the curriculum, it will not be added again.
@@ -162,7 +162,7 @@ def add_engines_to_curriculum(name: str, engines: list[HexEngine]):
         if engine not in curricula[name][2]:
             curricula[name][2].append(engine)
 
-def create_curriculum(name: str, radius: int, func: callable = None):
+def create_curriculum(name: str, radius: int, func: callable = None) -> None:
     '''
     Creates a new curriculum with the specified name, radius, and function.
 
@@ -191,3 +191,16 @@ def create_curriculum(name: str, radius: int, func: callable = None):
     if not callable(func):
         raise TypeError("Curriculum function must be callable.")
     curricula[name] = (radius, func, [])
+
+def remove_curriculum(name: str) -> None:
+    '''
+    Removes a curriculum by name.
+
+    Parameters:
+        name (str): The name of the curriculum to remove.
+    Raises:
+        ValueError: If the curriculum name does not exist.
+    '''
+    if name not in curricula:
+        raise ValueError(f"Curriculum '{name}' not found.")
+    del curricula[name]
