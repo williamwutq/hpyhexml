@@ -443,6 +443,7 @@ class Piece:
                 data += 1
         return data
     
+    @property
     def states(self) -> tuple[bool, ...]:
         '''
         Get the tuple of boolean values representing the occupancy state of each block in the Piece.
@@ -917,7 +918,7 @@ class HexEngine:
             raise TypeError("Piece must be an instance of Piece or an integer representing a Piece state")
         
         for i in range(7):
-            if piece.states()[i]:
+            if piece.states[i]:
                 try:
                     if self.get_state(piece.positions[i] + coo):
                         return False
@@ -948,7 +949,7 @@ class HexEngine:
             raise ValueError("Cannot add piece due to overlaps or out-of-range coordinates")
         
         for i in range(7):
-            if piece.states()[i]:
+            if piece.states[i]:
                 self.set_state(piece.positions[i] + coo, True)
 
     def check_positions(self, piece: Union[Piece, int]) -> list[Hex]:
@@ -1205,7 +1206,7 @@ class HexEngine:
         total_possible = 0
         total_populated = 0
         for i in range(7):
-            if piece.states()[i]:
+            if piece.states[i]:
                 placed_block = piece.positions[i] + coo
                 try:
                     if self.get_state(placed_block):
