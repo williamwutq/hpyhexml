@@ -270,7 +270,7 @@ class Game:
         turn (int): The current turn number in the game.
         end (bool): Whether the game has ended.
     '''
-    def __init__(self, r: int, q: int) -> None:
+    def __init__(self, engine: int, queue: int) -> None:
         '''
         Initialize the game with a game engine of radius r and game queue of length q.
 
@@ -279,13 +279,25 @@ class Game:
             q (int): The length of the queue for pieces.
         Raises:
             ValueError: If r is less than 2 or q is less than 1.
+        Raises:
+            TypeError: If r is not an integer or q is not a list of Piece instances or an integer.
         '''
-        if r < 2:
-            raise ValueError("Radius must be greater than or equals two")
-        if q < 1:
-            raise ValueError("Queue length must be at least one")
-        self.__engine = HexEngine(r)
-        self.__queue = [PieceFactory.generate_piece() for _ in range(q)]
+        if isinstance(engine, HexEngine):
+            self.__engine = engine
+        elif isinstance(engine, int):
+            if engine < 2:
+                raise ValueError("Radius must be greater than or equals two")
+            self.__engine = HexEngine(engine)
+        else:
+            raise TypeError("Engine must be a HexEngine instance or an integer representing the radius")
+        if isinstance(queue, list) and all(isinstance(p, Piece) for p in queue):
+            self.__queue = queue
+        elif isinstance(queue, int):
+            if queue < 1:
+                raise ValueError("Queue size must be greater than or equals one")
+            self.__queue = [PieceFactory.generate_piece() for _ in range(queue)]
+        else:
+            raise TypeError("Queue must be a list of Piece instances or an integer representing the size of the queue")
         self.__score = 0
         self.__turn = 0
         self.__end = False
