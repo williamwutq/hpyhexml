@@ -1,0 +1,18 @@
+{
+    "models": [
+        {
+            "name": "hex_tensorflow_cnn_5_1_stack_1",
+            "framework": "tensorflow",
+            "model_file": "hex_tensorflow_cnn_5_1_stack_1.keras",
+            "training_script": "run_2_tf.py",
+            "description": "A high-performing CNN model for Hex with engine radius 5 and queue length 1.",
+            "path": "models/hex_tensorflow_cnn_5_1_stack_1.keras",
+            "engine_size": 5,
+            "queue_size": 1,
+            "average_turns": 84.58,
+            "average_score": 1589.94,
+            "average_time": 0.0398,
+            "training_epochs": 64
+        }
+    ]
+}
