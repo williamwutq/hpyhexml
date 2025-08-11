@@ -11,6 +11,10 @@ def predict_data(model: keras.Model, engine: HexEngine, queue: list[Piece]) -> t
     """
     Predict the output for a given engine and queue using the trained model.
 
+    The model should output a flattened array of shape (num_blocks * queue_size,).
+    Each index corresponds to a piece in the queue and a block in the engine.
+    The value at each index represents the predicted score for placing that piece in that block.
+
     Parameters:
         model (keras.Model): The trained Keras model for prediction.
         engine (HexEngine): The HexEngine instance representing the current state of the game.
@@ -24,15 +28,21 @@ def predict_data(model: keras.Model, engine: HexEngine, queue: list[Piece]) -> t
     prediction = model(input_array, training=False).numpy()  # Call the model directly instead of using predict to avoid creation of new tensors
     # Cast it to a float array
     prediction = prediction.astype(float)[0]
+    # Check the shape of the prediction, it should be num_blocks * queue_size
+    if prediction.shape != (len(engine) * len(queue),):
+        raise ValueError(f"Prediction shape mismatch: expected {(len(engine) * len(queue),)}, got {prediction.shape}. Did you forget to flatten the output?")
+    engine_length = len(engine)
     # Set impossible to -1
-    possible = engine.check_positions(queue[0])
-    for i in range(len(prediction)):
-        if not engine.coordinate_block(i) in possible:
-            prediction[i] = -1.0
+    for idx, piece in enumerate(queue):
+        possible = engine.check_positions(piece)
+        for i in range(engine_length):
+            if not engine.coordinate_block(i) in possible:
+                prediction[i + engine_length * idx] = -1.0
     # Find the index of the maximum value in the prediction
-    max_index = np.argmax(prediction)
-    result_hex = engine.coordinate_block(int(max_index))
-    return (0, result_hex) # we only have one piece, so the index is always 0
+    max_index = int(np.argmax(prediction)) # Get the index of the maximum value as a python integer
+    result_piece = max_index // engine_length  # Determine which piece in the queue it corresponds to
+    result_hex = engine.coordinate_block(max_index % engine_length)  # Determine the Hex coordinate from the index
+    return (result_piece, result_hex)
 
 def create_model_predictor(model_path: str, func_name: str) -> callable:
     """
