@@ -16,3 +16,9 @@ priv/
 *.h5
 */*.keras
 */*.h5
+
+### Test code ###
+test_*.py
+test.py
+*/test_*.py
+*/test.py
