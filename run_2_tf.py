@@ -10,7 +10,7 @@
 # Copyright (c) 2025 William Wu, licensed under the MIT License.
 
 # Parameters for training the model, replace with your own values.
-save_as = 'hex_tensorflow_mlp_5_1_cnn_1.keras'
+save_as = 'hex_tensorflow_cnn_5_1_stack_1.keras'
 load_from = None # If you want to load a pre-trained model, specify the path here.
 training_path = ['hpyhexml_data/data/train/nrsearchrank/5-1/0.txt', 
                  'hpyhexml_data/data/train/nrsearchrank/5-1/1.txt',
@@ -96,6 +96,7 @@ def prepare_data(engine: HexEngine, queue: list[Piece], desired: list[tuple[int,
     """
     input_data = hx.flatten_engine(engine) + hx.flatten_queue(queue)
     output_data = hx.flatten_single_desired(engine, desired, lambda x: hx.softmax_rank_score(x, len(desired)), swap_noise = 0.01, score_noise = 0)
+    # Change to output_data = hx.label_single_desired(engine, desired[0]) later
     
     return np.array(input_data), np.array(output_data)
 print("Imported modules.\n")
