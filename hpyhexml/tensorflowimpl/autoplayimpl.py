@@ -1,5 +1,6 @@
 import keras
 from hpyhex.hex import HexEngine, Piece, Hex
+import tensorflow as tf
 import numpy as np
 from .. import hex as hx
 from .hexcnn import HexDynamicConv, HexConv
@@ -18,7 +19,7 @@ def predict_data(model: keras.Model, engine: HexEngine, queue: list[Piece]) -> t
     input_data = hx.flatten_engine(engine) + hx.flatten_queue(queue)
     input_array = np.array(input_data)
     input_array = input_array.reshape(1, -1)  # Reshape to add batch dimension
-    prediction = model.predict(input_array, verbose=0)
+    prediction = model(input_array, training=False).numpy()  # Call the model directly instead of using predict to avoid creation of new tensors
     # Cast it to a float array
     prediction = prediction.astype(float)[0]
     # Set impossible to -1
@@ -59,6 +60,7 @@ def create_model_predictor(model_path: str, func_name: str) -> callable:
     if not func_name:
         raise ValueError("func_name cannot be an empty string")
     model = keras.models.load_model(model_path, custom_objects={"HexDynamicConv": HexDynamicConv, "HexConv": HexConv})
+    model.call = tf.function(model.call, reduce_retracing=True) # Reduce retracing to avoid memory leaks
 
     def predictor(engine, queue):
         try:
