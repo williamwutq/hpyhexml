@@ -5,6 +5,8 @@ import numpy as np
 from .. import hex as hx
 from .hexcnn import HexDynamicConv, HexConv
 
+keras.config.enable_unsafe_deserialization()
+
 def predict_data(model: keras.Model, engine: HexEngine, queue: list[Piece]) -> tuple[int, Hex]:
     """
     Predict the output for a given engine and queue using the trained model.
