@@ -97,7 +97,7 @@ class HexConv(Layer):
         self.kernel_regularizer = keras.regularizers.get(kernel_regularizer) if kernel_regularizer is not None else None
         activity_regularizer = kwargs.pop('activity_regularizer', None)
         self.activity_regularizer = keras.regularizers.get(activity_regularizer) if activity_regularizer is not None else None
-        kwargs.pop('kernel_size') # We don't care about kernel size here, it is fixed at 7
+        kwargs.pop('kernel_size', None) # We don't care about kernel size here, it is fixed at 7
         # Initialize the parent class
         super().__init__(**kwargs)
         # Initialize instance
@@ -335,7 +335,7 @@ class HexDynamicConv(Layer):
         self.kernel_regularizer = keras.regularizers.get(kernel_regularizer) if kernel_regularizer is not None else None
         activity_regularizer = kwargs.pop('activity_regularizer', None)
         self.activity_regularizer = keras.regularizers.get(activity_regularizer) if activity_regularizer is not None else None
-        kwargs.pop('kernel_size') # We don't care about kernel size here, it is fixed at 7
+        kwargs.pop('kernel_size', None) # We don't care about kernel size here, it is fixed at 7
         # Initialize the parent class
         super().__init__(**kwargs)
         # Initialize instance
