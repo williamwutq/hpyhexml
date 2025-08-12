@@ -3,4 +3,13 @@
 
 ### Python Cache ###
 __pycache__/
-.pyc
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+## Python Build Files ##
+*.egg-info/
+*.egg
+dist/
+build/
