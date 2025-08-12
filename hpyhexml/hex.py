@@ -1,5 +1,5 @@
 from hpyhex.hex import HexEngine, Piece, Hex
-from random import random
+from random import random, shuffle
 from math import exp
 
 __all__ = ['sigmoid_like', 'non_negative', 'non_positive', 'softmax_rank_score',
@@ -354,3 +354,32 @@ def label_multiple_desired(engine: int | HexEngine, queue: int | list[Piece], de
     else:
         raise ValueError(f"Invalid Hex position {coord} for piece index {piece_index}.")
     return output
+
+def argument_queue(data: list[tuple[HexEngine, list[Piece], list[tuple[int, Hex]]]]) -> None:
+    '''
+    Argument the queue data by randomly shuffling the pieces in the queue but preserving the correspondence of piece index in the desired output.
+    
+    This function is in place and directly modify the data. Nothing is returned.
+
+    Parameters:
+        data (list[tuple[HexEngine, list[Piece], list[tuple[int, Hex]]]]): The training data to argument.
+    Returns:
+        None
+    '''
+    for engine, queue, options in data:
+        n = len(queue)
+        if n <= 1:
+            continue
+        # p[new_index] = old_index
+        p = list(range(n))
+        shuffle(p)
+        # inv[old_index] = new_index
+        inv = [0] * n
+        for new_index, old_index in enumerate(p):
+            inv[old_index] = new_index
+        # Reorder queue in-place
+        queue[:] = [queue[old_index] for old_index in p]
+        # Remap options in-place
+        for k in range(len(options)):
+            old_i, coord = options[k]
+            options[k] = (inv[old_i], coord)
