@@ -624,6 +624,19 @@ class HexEngine:
                 0 <= k < radius * 2 - 1)
     
     @staticmethod
+    def solve_length(radius: int) -> int:
+        """
+        Solves for the length of a HexEngine based on its radius.
+        Arguments:
+            radius (int): The radius of the hexagonal grid.
+        Returns:
+            int: The length of the hexagonal grid, or -1 if the radius is invalid.
+        """
+        if radius < 1:
+            return -1
+        return 1 + 3 * radius * (radius - 1)
+    
+    @staticmethod
     def solve_radius(length: int) -> int:
         """
         Solves for the radius of a HexEngine based on its length.
