@@ -875,15 +875,19 @@ class HexEngine:
         Returns:
             Hex: The Hex coordinate of the block.
         Raises:
+            TypeError: If the index is not an integer.
             ValueError: If the index is out of range.
         '''
-        l = len(self.__states)
+        if not isinstance (index, int):
+            raise TypeError("Index must be an integer")
+        if index < 0:
+            raise ValueError("Index out of range")
         r = self.__radius
         for i in range(r):
             if index < i + r:
                 return Hex(i, index)
             index -= i + r
-        for i in range(r):
+        for i in range(r - 1):
             if index < 2 * r - 2 - i:
                 return Hex(i + r, index + i + 1)
             index -= 2 * r - 2 - i
