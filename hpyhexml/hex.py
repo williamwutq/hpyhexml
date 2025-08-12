@@ -262,7 +262,7 @@ def flatten_multiple_desired(engine: int | HexEngine, queue: int | list[Piece],
         raise TypeError("desired must be a list of tuples of (piece_index, Hex)")
     # Create an empty array filled with zeros
     engine_length = len(engine)
-    output = [0.0] * engine_length * queue
+    output = [0.0] * (engine_length * queue)
     # Swap is noise is introduced
     if swap_noise > 0.0:
         for index in range(len(desired)):
@@ -282,14 +282,14 @@ def flatten_multiple_desired(engine: int | HexEngine, queue: int | list[Piece],
             raise ValueError(f"Invalid Hex position {coord} for piece index {piece_index}.")
     return output
 
-def label_single_desired(engine: HexEngine, desired: tuple[int, Hex]) -> list[int]:
+def label_single_desired(engine: int | HexEngine, desired: tuple[int, Hex]) -> list[int]:
     '''
     (**Output**) Label a single desired output into a list of integers.
     
     This function guarantees that the output is one-hot encoded or an error is raised.
 
     Parameters:
-        engine (HexEngine): The HexEngine instance to get the size. It will not be modified.
+        engine (HexEngine): The HexEngine instance to get the size or the the engine radius. It will not be modified.
         desired (tuple[int, Hex]): A tuple containing the piece index and Hex position.
     Returns:
         vector (list[int]): A list of integers representing the desired output.
@@ -297,8 +297,11 @@ def label_single_desired(engine: HexEngine, desired: tuple[int, Hex]) -> list[in
         TypeError: If the engine is not an instance of HexEngine or desired is not a tuple of (int, Hex).
         ValueError: If the Hex position is invalid for the given piece index.
     '''
-    if not isinstance(engine, HexEngine):
-        raise TypeError("engine must be an instance of HexEngine")
+    if isinstance(engine, int):
+        # If engine is an integer, create a HexEngine with that radius
+        engine = HexEngine(engine)
+    elif not isinstance(engine, HexEngine):
+        raise TypeError("engine must be an instance of HexEngine or an integer representing the radius")
     if not isinstance(desired, tuple) or len(desired) != 2:
         raise TypeError("desired must be a tuple of (piece_index, Hex)")
     if not isinstance(desired[0], int) or not isinstance(desired[1], Hex):
@@ -308,6 +311,46 @@ def label_single_desired(engine: HexEngine, desired: tuple[int, Hex]) -> list[in
     block_index = engine.index_block(coord)
     if block_index != -1:
         output[block_index] = 1
+    else:
+        raise ValueError(f"Invalid Hex position {coord} for piece index {piece_index}.")
+    return output
+
+def label_multiple_desired(engine: int | HexEngine, queue: int | list[Piece], desired: tuple[int, Hex]) -> list[int]:
+    '''
+    (**Output**) Label a multi-queue desired output into a list of integers.
+
+    This function guarantees that the output is one-hot encoded or an error is raised.
+
+    Parameters:
+        engine (int HexEngine): The HexEngine instance to get the size or the engine radius. It will not be modified.
+        queue (int | list[Piece]): The queue length or a list of Piece instances. If a list, it will be converted to its length.
+        desired (tuple[int, Hex]): A tuple containing the piece index and Hex position.
+    Returns:
+        vector (list[int]): A list of integers representing the desired output. It will be of size len(engine) * len(queue_length).
+    Raises:
+        TypeError: If the engine is not an instance of HexEngine or an integer, or if queue is not a positive integer or a list of Piece instances.
+        ValueError: If the Hex position is invalid for the given piece index.
+    '''
+    if isinstance(engine, int):
+        # If engine is an integer, create a HexEngine with that radius
+        engine = HexEngine(engine)
+    elif not isinstance(engine, HexEngine):
+        raise TypeError("engine must be an instance of HexEngine or an integer representing the radius")
+    if not queue:
+        raise TypeError("queue must be a positive integer representing the queue length or a list of Piece instances")
+    elif isinstance(queue, list):
+        queue = len(queue)
+    elif not isinstance(queue, int) or queue < 0:
+        raise TypeError("queue must be a positive integer representing the queue length or a list of Piece instances")
+    if not isinstance(desired, tuple) or len(desired) != 2:
+        raise TypeError("desired must be a tuple of (piece_index, Hex)")
+    if not isinstance(desired[0], int) or not isinstance(desired[1], Hex):
+        raise TypeError("desired must be a tuple of (int, Hex)")
+    output = [0] * (len(engine) * queue)
+    piece_index, coord = desired
+    block_index = engine.index_block(coord)
+    if block_index != -1:
+        output[block_index + len(engine) * piece_index] = 1
     else:
         raise ValueError(f"Invalid Hex position {coord} for piece index {piece_index}.")
     return output
