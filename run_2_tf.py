@@ -152,6 +152,10 @@ print(f"Parsed {len(x_test)} testing samples.")
 print(f"First testing sample: \nInput: \n{x_test[0]}\nOutput: \n{y_test[0]}")
 print()
 
+import gc
+del(training_data, testing_data)  # Free memory. This way we don't have large serialized lists in memory.
+gc.collect()  # Collect garbage to free memory
+
 # Check if data is correct
 print("Data is correct and proceed to training [y]/n: ", end="")
 response = input().strip().lower()
@@ -287,6 +291,8 @@ print("Testing complete.")
 print(f"Test Loss: {loss}\n")
 
 # Benchmark the model
+del(x_train, y_train, x_test, y_test)  # Free memory. This way we don't have large deserialized numpy arrays in memory.
+gc.collect()
 time.sleep(2)
 print("Benchmarking the model...")
 from hpyhex.benchmark import benchmark, compare
