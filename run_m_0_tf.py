@@ -110,6 +110,8 @@ for path in training_path:
     print(f"Loading {path}...")
     training_data += load_training_data(path)
 np.random.shuffle(training_data)
+hx.argument_queue(training_data)
+
 print(f"Loaded {len(training_data)} training samples.")
 print(f"First training sample: \n{training_data[0]}\n")
 
@@ -120,6 +122,7 @@ for path in testing_path:
     print(f"Loading {path}...")
     testing_data += load_training_data(path)
 np.random.shuffle(testing_data)
+hx.argument_queue(testing_data)
 print(f"Loaded {len(testing_data)} testing samples.")
 print(f"First testing sample: \n{testing_data[0]}\n")
 print()
@@ -239,18 +242,18 @@ def create_model(
     conv = Dropout(dropout_rate, name="dropout_conv3")(conv)
 
     # Fourth HexDynamicConv block
-    conv = HexDynamicConv(64, activation=None)([conv, processed_piece])
+    conv = HexDynamicConv(80, activation=None)([conv, processed_piece])
     conv = BatchNormalization(name="bn_conv4")(conv)
     conv = Activation('relu', name="act_conv4")(conv)
     conv = Dropout(dropout_rate / 2, name="dropout_conv4")(conv)
 
     # Fifth HexDynamicConv block
-    conv = HexDynamicConv(32, activation=None)([conv, processed_piece])
+    conv = HexDynamicConv(64, activation=None)([conv, processed_piece])
     conv = BatchNormalization(name="bn_conv5")(conv)
     conv = Activation('relu', name="act_conv5")(conv)
 
     # Sixth HexDynamicConv block
-    conv = HexDynamicConv(16, activation=None)([conv, processed_piece])
+    conv = HexDynamicConv(32, activation=None)([conv, processed_piece])
     conv = BatchNormalization(name="bn_conv6")(conv)
     conv = Activation('relu', name="act_conv6")(conv)
 
@@ -261,7 +264,8 @@ def create_model(
 
     # Flatten and final output layer with softmax
     flattened = Flatten(name="flatten")(conv)
-    output = Activation('softmax', name="output")(flattened)
+    dense = Dense(grid_size * queue_size, activation='linear', name="dense_final")(flattened)
+    output = Activation('softmax', name="output")(dense)
 
     # Build and return model
     model = Model(inputs=input_layer, outputs=output, name="HexGridModel")
