@@ -13,6 +13,20 @@
             "average_score": 1589.94,
             "average_time": 0.0398,
             "training_epochs": 64
+        },
+        {
+            "name": "hex_tensorflow_cnn_5_3_stack_1",
+            "framework": "tensorflow",
+            "model_file": "hex_tensorflow_cnn_5_3_stack_1.keras",
+            "training_script": "run_m_0_tf.py",
+            "description": "A high-performing CNN base model for Hex with engine radius 5 and queue length 3.",
+            "path": "models/hex_tensorflow_cnn_5_3_stack_1.keras",
+            "engine_size": 5,
+            "queue_size": 3,
+            "average_turns": 795.06,
+            "average_score": 16363.11,
+            "average_time": 0.0208,
+            "training_epochs": 72
         }
     ]
 }
