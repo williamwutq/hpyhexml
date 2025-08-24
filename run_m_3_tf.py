@@ -206,9 +206,10 @@ def create_model(
     # - The model is split into three distinct parts:
     #   1. Input layer that slices the grid and piece inputs.
     #   2. Preprocessing of the piece inputs for each piece in the queue
-    #   3. A series of HexDynamicConv layers that process the grid and piece inputs.
-    #   4. A final HexConv layer to reduce the output to 3 features, representing three pieces in the queue.
-    #   5. Output layer that flatten and applies softmax activation to produce the final output.
+    #   3. Preprocessing of the grid input
+    #   4. A series of HexDynamicConv layers that process the grid and piece inputs, with some HexConv layers in between.
+    #   5. A final HexConv layer to reduce the output to 3 features, representing three pieces in the queue.
+    #   6. Output layer that flatten and applies softmax activation to produce the final output.
     # Input layer
     input_layer = Input(shape=(grid_size + piece_size * queue_size,), name="input_layer")
 
