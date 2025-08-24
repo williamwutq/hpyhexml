@@ -7,7 +7,7 @@ such as dense index, score gain, and entropy.
 from hpyhex.hex import HexEngine, Piece, Hex
 from math import exp
 
-__all__ = ['nrminimax', 'nrminimaxmix', 'nrminimaxeven', 'nrentropy', 'nrsearch', 'nrdenseindex', 'nrscoreindex', 'nrbineliminate', 'nrsearchworst']
+__all__ = ['nrminimax', 'nrminimaxmix', 'nrminimaxeven', 'nrentropy', 'nrsearch', 'nrdenseindex', 'nrscoreindex', 'nrnaivescoreindex', 'nrbineliminate', 'nrsearchworst']
 
 def nrminimax(engine: HexEngine, queue : list[Piece]) -> tuple[int, Hex]:
     '''
@@ -208,6 +208,36 @@ def nrdenseindex(engine: HexEngine, queue : list[Piece]) -> tuple[int, Hex]:
     best_piece_option, best_position_option, best_score_result = best_placement
     return (best_piece_option, best_position_option)
 
+def nrnaivescoreindex(engine: HexEngine, queue : list[Piece]) -> tuple[int, Hex]:
+    '''
+    A heuristic algorithm that selects the best piece and position based on the naive score index.
+    
+    Parameters:
+        engine (HexEngine): The game engine.
+        queue (list[Piece]): The queue of pieces available for placement.
+    Returns:
+        placement (tuple[int, Hex]): A tuple containing the index of the best piece and the best position to place it.
+    Raises:
+        ValueError: If the queue is empty or no valid positions are found for the pieces in the queue.
+    '''
+    options = []
+    seen_pieces = {}
+    for piece_index, piece in enumerate(queue):
+        key = int(piece)
+        if key in seen_pieces: continue
+        seen_pieces[key] = piece_index
+        for coord in engine.check_positions(piece):
+            score = len(piece)
+            copy_engine = engine.__copy__()
+            copy_engine.add_piece(coord, piece)
+            score += len(copy_engine.eliminate()) * 5
+            options.append((piece_index, coord, score))
+    if not options:
+        raise ValueError("No valid options found")
+    best_placement = max(options, key=lambda item: item[2])
+    best_piece_option, best_position_option, best_score_result = best_placement
+    return (best_piece_option, best_position_option)
+
 def nrscoreindex(engine: HexEngine, queue : list[Piece]) -> tuple[int, Hex]:
     '''
     A heuristic algorithm that selects the best piece and position based on the score index.
@@ -230,7 +260,7 @@ def nrscoreindex(engine: HexEngine, queue : list[Piece]) -> tuple[int, Hex]:
             score = len(piece)
             copy_engine = engine.__copy__()
             copy_engine.add_piece(coord, piece)
-            score += len(copy_engine.eliminate()) * 3
+            score += len(copy_engine.eliminate()) / engine.radius
             options.append((piece_index, coord, score))
     if not options:
         raise ValueError("No valid options found")
