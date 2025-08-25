@@ -1252,7 +1252,7 @@ class HexEngine:
         '''
         pattern = 0
         for i in range(7):
-            i <<= 1
+            pattern <<= 1
             try:
                 if self.get_state(Piece.positions[i] + coo):
                     pattern + 1
