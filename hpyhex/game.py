@@ -335,7 +335,7 @@ class Game:
         self.__score += len(self.__engine.eliminate()) * 5
         self.__turn += 1
         # Check whether the game has ended
-        for p in PieceFactory.all_pieces():
+        for p in self.__queue:
             if self.__engine.check_positions(p):
                 break
         else:
