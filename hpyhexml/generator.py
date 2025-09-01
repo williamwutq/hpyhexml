@@ -176,6 +176,65 @@ def generate_training_data(num_samples: int, algorithm = nrsearchls,
         print(f"Generated {len(data)} samples.")
     return data
 
+def generate_training_data_limited(num_samples: int, algorithm = nrsearchls,
+                           engine_radius: int = 5, queue_size: int = 3, significant_choices: int = 7,
+                           remove_head: float = 0.0, remove_tail: float = 0.05, move_dropout: float = 0.05,
+                           verbose: bool = True, max_turn: int = 10000) -> list[tuple[HexEngine, list[Piece], list[tuple[int, Hex]]]]:
+    '''
+    A safe version of generate_training_data that prevents games from running infinitely by imposing a maximum turn limit.
+
+    The game will forcibly end after max_turn turns, and the data collected up to that point will be used.
+    
+    Parameters:
+        num_samples (int): The number of samples to generate.
+        algorithm (callable): The algorithm to use for generating the game states. Default is nrsearchls.
+        engine_radius (int): The radius of the HexEngine.
+        queue_size (int): The size of the queue of pieces.
+        significant_choices (int): The number of significant choices to consider.
+        remove_head (float): The fraction of the first part of the game data to remove.
+        remove_tail (float): The fraction of the last part of the game data to remove.
+        move_dropout (float): The probability of dropping a move.
+        verbose (bool): Whether to print progress messages.
+        max_turn (int): The maximum number of turns to allow in a game before forcing it to end.
+    Returns:
+        data (list[tuple]): A list of tuples containing the engine, queue, and best options.
+    Raises:
+        ValueError: If input parameters are invalid, algorithm call fails, or other errors occur.
+    '''
+    data = []
+    sample = 0
+    while len(data) < num_samples:
+        inner_data = []
+        game = Game(engine_radius, queue_size)
+        while not game.end and game.turn < max_turn:
+            # Run the algorithm to get the best moves
+            best_moves = algorithm(game.engine, game.queue, significant_choices)
+            if not best_moves:
+                break
+            # Make the first best move
+            piece_index, coord = best_moves[0]
+            copy_engine = game.engine.__copy__()
+            copy_queue = game.queue.copy()
+            if not game.add_piece(piece_index, coord):
+                break
+            # Collect the engine, queue, and best options
+            if random() > move_dropout:
+                # Only add the data if the move is not dropped
+                inner_data.append((copy_engine, copy_queue, best_moves))
+        # Strip the last 5% of the game data as it is not meaningful, saving the other 95% to data
+        data_len = len(inner_data)
+        if data_len > 0:
+            data.extend(inner_data[int(data_len * remove_head):int(data_len * (1 - remove_tail))])
+        turn, score = game.result
+        sample += 1
+        if verbose:
+            print(f"Game {sample} ends with {turn}, {score}, {100*len(data)/num_samples:.2f}% complete.")
+    # Strip the extra data to the specified number of samples
+    data = data[:num_samples]
+    if verbose:
+        print(f"Generated {len(data)} samples.")
+    return data
+
 
 def save_engine_states(data: list[HexEngine], filename: str, print_err: bool = False) -> None:
     '''
