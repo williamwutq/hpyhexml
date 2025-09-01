@@ -41,6 +41,20 @@
             "average_score": 18776.27,
             "average_time": 0.0213,
             "training_epochs": 49
+        },
+        {
+            "name": "hex_tensorflow_cnn_5_3_stack_4_refined_0",
+            "framework": "tensorflow",
+            "model_file": "hex_tensorflow_cnn_5_3_stack_4_refined_0.keras",
+            "training_script": "run_m_4_tf.py",
+            "description": "A refined high-performing CNN model for Hex with engine radius 5 and queue length 3, trained on large dataset.",
+            "path": "models/release/hex_tensorflow_cnn_5_3_stack_4_refined_0.keras",
+            "engine_size": 5,
+            "queue_size": 3,
+            "average_turns": 999.14,
+            "average_score": 20591.005,
+            "average_time": 0.0263,
+            "training_epochs": 30
         }
     ]
 }
