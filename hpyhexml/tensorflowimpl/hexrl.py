@@ -7,34 +7,35 @@ class SinglePieceBatchedRLTrainer:
     Uses REINFORCE with a baseline from the critic. Built for single-piece queues or single-piece virtual queues.
     '''
 
-    def __init__(self, batched_game, agent, critic, agent_optimizer, critic_optimizer, gamma=0.99):
+    def __init__(self, agent, critic, agent_optimizer, critic_optimizer, gamma=0.99):
         '''
         Initializes the trainer with a batched game environment, agent and critic functions, optimizers, and discount factor.
 
         Parameters:
-            batched_game (BatchedGame): The game environment (parallelized).
             agent (tf.keras.Model): Model taking (tf.Tensor) -> action logits (tf.Tensor of shape [batch, num_actions]).
             critic (tf.keras.Model): Model taking (tf.Tensor) -> value predictions (tf.Tensor of shape [batch]).
             agent_optimizer (tf.keras.optimizers.Optimizer)
             critic_optimizer (tf.keras.optimizers.Optimizer)
             gamma (float): Discount factor.
         '''
-        self.env = batched_game
         self.agent = agent
         self.critic = critic
         self.agent_optimizer = agent_optimizer
         self.critic_optimizer = critic_optimizer
         self.gamma = gamma
 
-    def run_episode_and_update(self, limit=None):
+    def run_episode_and_update(self, env, limit=None):
         '''
         Runs a batch of games, collects trajectories, computes losses, and applies gradients.
 
         Parameters:
+            env (BatchedGame): The batched game environment to run.
             limit (int, optional): Optional limit on the number of turns per game. If None, runs until all games finish.
         Returns:
             dict: Dictionary with keys "policy_loss", "value_loss", and "avg_reward"
         '''
+        if not callable(env):
+            raise ValueError("env must be a callable BatchedGame instance.")
         log_probs = []
         values = []
         rewards = []
@@ -65,7 +66,7 @@ class SinglePieceBatchedRLTrainer:
             masks.append(done_mask)
 
         # Run batched game once
-        self.env(algorithm_wrapper, feedback_wrapper, limit=limit)
+        env(algorithm_wrapper, feedback_wrapper, limit=limit)
 
         # Convert lists to tensors
         log_probs = tf.stack(log_probs)        # [T, batch]
@@ -74,7 +75,7 @@ class SinglePieceBatchedRLTrainer:
         masks = tf.stack(masks)                # [T, batch]
 
         # Compute returns
-        returns = self._compute_returns(rewards, masks, self.gamma)
+        returns = self.__compute_returns(rewards, masks, self.gamma)
         returns = tf.stop_gradient(returns)
 
         # Advantage
@@ -98,7 +99,7 @@ class SinglePieceBatchedRLTrainer:
             "avg_reward": float(tf.reduce_mean(rewards))
         }
 
-    def _compute_returns(self, rewards, masks, gamma):
+    def __compute_returns(self, rewards, masks, gamma):
         '''
         Compute discounted returns with episode masking.
         '''
