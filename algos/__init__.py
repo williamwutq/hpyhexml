@@ -13,7 +13,7 @@ All algorithms may raise a `ValueError` if no valid moves are found, or inputs a
 
 from .base import random, first
 from .nr import nrsearch, nrminimax, nrminimaxmix, nrminimaxeven, nrentropy, nrsearchworst, nrscoreindex, nrnaivescoreindex, nrdenseindex, nrbineliminate
-from .rc import rcminimax
+from .rc import rcminimax, rcsearch
 
 __all__ = ['random', 'first', 'nrminimax', 'nrminimaxmix', 'nrminimaxeven', 'nrentropy', 'nrsearch',
-           'nrdenseindex', 'nrscoreindex', 'nrnaivescoreindex', 'nrbineliminate', 'nrsearchworst', 'rcminimax']
+           'nrdenseindex', 'nrscoreindex', 'nrnaivescoreindex', 'nrbineliminate', 'nrsearchworst', 'rcminimax', 'rcsearch']
