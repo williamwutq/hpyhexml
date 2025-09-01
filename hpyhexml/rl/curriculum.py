@@ -13,6 +13,41 @@ from copy import deepcopy as clone
 curricula = {}
 # Format: {name -> (radius, func, cache: [HexEngine...])}
 
+def list_curricula() -> list[str]:
+    '''
+    Lists all available curricula by name.
+
+    Returns:
+        list: A list of curriculum names.
+    '''
+    return list(curricula.keys())
+
+def curriculum_exists(name: str) -> bool:
+    '''
+    Checks if a curriculum exists by name.
+
+    Parameters:
+        name (str): The name of the curriculum.
+    Returns:
+        bool: True if the curriculum exists, False otherwise.
+    '''
+    return name in curricula
+
+def count_engines_in_curriculum(name: str) -> int:
+    '''
+    Counts the number of game engines in the curriculum by name.
+
+    Parameters:
+        name (str): The name of the curriculum.
+    Returns:
+        int: The number of HexEngine instances in the curriculum.
+    Raises:
+        ValueError: If the curriculum name does not exist.
+    '''
+    if name not in curricula:
+        raise ValueError(f"Curriculum '{name}' not found.")
+    return len(curricula[name][2])
+
 def retrieve_all_from_curriculum(name: str) -> list[HexEngine]:
     '''
     Retrieves all game engines from the curriculum by name.
