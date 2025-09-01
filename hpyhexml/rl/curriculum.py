@@ -215,6 +215,19 @@ def remove_curriculum(name: str) -> None:
         raise ValueError(f"Curriculum '{name}' not found.")
     del curricula[name]
 
+def clear_curriculum(name: str) -> None:
+    '''
+    Clears the cache of a curriculum by name.
+
+    Parameters:
+        name (str): The name of the curriculum to clear.
+    Raises:
+        ValueError: If the curriculum name does not exist.
+    '''
+    if name not in curricula:
+        raise ValueError(f"Curriculum '{name}' not found.")
+    curricula[name] = (curricula[name][0], curricula[name][1], [])
+
 # Default curricula
 def algo_based_startgame(alg: callable, radius: int, queue_length: int, **kwargs) -> None:
     '''
