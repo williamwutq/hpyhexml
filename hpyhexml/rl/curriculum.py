@@ -228,6 +228,80 @@ def clear_curriculum(name: str) -> None:
         raise ValueError(f"Curriculum '{name}' not found.")
     curricula[name] = (curricula[name][0], curricula[name][1], [])
 
+def save_curriculum(name: str) -> None:
+    '''
+    Saves the current state of a curriculum by name.
+
+    This function evokes the `generator` module to save the engine states of the curriculum to files.
+    The filename format will be the same as the name of the curriculum.
+    The python generator code will be saved to a file named `{name}_gen.py` if it exists.
+
+    Parameters:
+        name (str): The name of the curriculum to save.
+    Raises:
+        ValueError: If the curriculum name does not exist.
+    '''
+    if name not in curricula:
+        raise ValueError(f"Curriculum '{name}' not found.")
+    from hpyhexml import generator
+    generator.save_engine_states(curricula[name][2], f"{name}.txt")
+    func = curricula[name][1]
+    if callable(func):
+        import inspect, textwrap
+        try:
+            source = inspect.getsource(func)
+            source = textwrap.dedent(source)
+            with open(f"{name}_gen.py", "w") as f:
+                f.write(source)
+        except Exception: pass
+    
+def load_curriculum(name: str) -> None:
+    '''
+    Loads a curriculum by name from saved files.
+
+    This function evokes the `generator` module to load the engine states of the curriculum from files.
+    The filename format should be the same as the name of the curriculum.
+    The python generator code will be loaded from a file named `{name}_gen.py` if it exists.
+
+    This function performs validation to ensure that all loaded engines have the same radius, and the generator, if exists, 
+    is a valid callable function that accepts a `radius` parameter.
+    If the curriculum already exists, it will not be loaded again.
+
+    Parameters:
+        name (str): The name of the curriculum to load.
+    Raises:
+        ValueError: If the curriculum name already exists or if the loaded engines have inconsistent radius.
+    '''
+    if name in curricula:
+        raise ValueError(f"Curriculum '{name}' already exists.")
+    from hpyhexml import generator
+    engines = generator.load_engine_states(f"{name}.txt")
+    func = None
+    try:
+        with open(f"{name}_gen.py", "r") as f:
+            code = f.read()
+            local_vars = {}
+            exec(code, {}, local_vars)
+            func_candidates = [v for v in local_vars.values() if callable(v)]
+            if func_candidates:
+                func = func_candidates[0]
+    except Exception: pass
+    if engines:
+        radius = engines[0].radius
+        if not all(e.radius == radius for e in engines):
+            raise ValueError("All loaded engines must have the same radius.")
+    elif callable(func):
+        import inspect
+        sig = inspect.signature(func)
+        params = sig.parameters
+        if 'radius' in params:
+            radius = 1  # Default radius if no engines are loaded
+        else:
+            raise ValueError("Loaded function must accept 'radius' parameter.")
+    else:
+        raise ValueError("Cannot determine radius for curriculum without engines or a valid function.")
+    curricula[name] = (radius, func, engines)
+
 # Default curricula
 def algo_based_startgame(alg: callable, radius: int, queue_length: int, **kwargs) -> None:
     '''
