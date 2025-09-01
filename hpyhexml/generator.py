@@ -14,6 +14,8 @@ Functions:
 - load_training_data: load training data from a text file
 - generate_training_data: generate training data based on a certain algorithm,
   which will be provided in its sample directory as a function, and optionally store or return that data.
+- save_engine_states: save engine states to a text file
+- load_engine_states: load engine states from a text file
 '''
 
 from random import random
@@ -21,7 +23,7 @@ from hpyhex.hex import HexEngine, Piece, Hex
 from hpyhex.game import Game
 
 
-__all__ = ['save_training_dataset', 'load_training_data', 'generate_training_data']
+__all__ = ['save_training_dataset', 'load_training_data', 'generate_training_data', 'save_engine_states', 'load_engine_states']
 
 def nrsearchls(engine: HexEngine, queue: list[Piece], significant_choices: int = 7) -> list[tuple[int, Hex]]:
     '''
@@ -173,3 +175,53 @@ def generate_training_data(num_samples: int, algorithm = nrsearchls,
     if verbose:
         print(f"Generated {len(data)} samples.")
     return data
+
+
+def save_engine_states(data: list[HexEngine], filename: str, print_err: bool = False) -> None:
+    '''
+    Save engine states to a file.
+    
+    Parameters:
+        data (list): A list of HexEngine instances.
+        filename (str): The file to save the engine states to.
+        print_err (bool): Whether to print errors if they occur during saving.
+    Returns:
+        None
+    '''
+    try:
+        with open(filename, 'w') as f:
+            for engine in data:
+                try:
+                    # Engine booleans as string of 0s and 1s
+                    engine_data = repr(engine)
+                    # Write line
+                    f.write(f"{engine_data}\n")
+                except Exception as e:
+                    if print_err:
+                        print(f"Error saving engine state {engine}: {e}")
+    except IOError as e:
+        if print_err:
+            print(f"Error writing to file {filename}: {e}")
+
+def load_engine_states(filename: str, print_err: bool = False) -> list[HexEngine]:
+    '''
+    Load engine states from a file.
+
+    Parameters:
+        filename (str): The file to load the engine states from.
+        print_err (bool): Whether to print errors if they occur during loading.
+    Returns:
+        data (list[HexEngine]): A list of HexEngine instances.
+    '''
+    dataset = []
+    try:
+        with open(filename, 'r') as f:
+            for line in f:
+                engine_str = line.strip()
+                # Reconstruct engine
+                engine = HexEngine(engine_str)
+                dataset.append(engine)
+    except IOError as e:
+        if print_err:
+            print(f"Error reading file {filename}: {e}")
+    return dataset
