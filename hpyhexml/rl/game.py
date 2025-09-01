@@ -46,6 +46,8 @@ class BatchedGame:
             raise ValueError("queue_length must be a positive integer.")
         if not isinstance(engine, HexEngine):
             raise ValueError("engine must be an instance of HexEngine.")
+        self.interrupted = False
+        self.exited = False
         self.parallel_games = parallel_games
         self.max_batch_size = max_batch_size or parallel_games
         self.engines = [clone(engine) for _ in range(parallel_games)] # Clone the engine for each game
@@ -105,7 +107,7 @@ class BatchedGame:
         if limit is not None and (not isinstance(limit, int) or limit <= 0):
             raise ValueError("limit must be a positive integer or None.")
         batches_done = 0
-        while True:
+        while any(self.active) and not self.interrupted:
             # Select active games for this step
             active_indices = [i for i, a in enumerate(self.active) if a]
             if not active_indices:
@@ -163,3 +165,33 @@ class BatchedGame:
             batches_done += 1
             if limit is not None and batches_done >= limit:
                 break
+        self.exited = True
+    
+    def interrupt(self) -> None:
+        '''
+        Interrupt the batched game, causing it to stop at the next opportunity.
+
+        If the object is deleted during the execution of the __call__ method, it is recommended to call this method first to ensure a graceful exit.
+
+        This method sets an internal flag that is checked during the execution of the __call__ method.
+        When the flag is set, the __call__ method will stop processing further moves and exit gracefully.
+
+        This is useful for scenarios where you want to stop the game early, such as during training or testing.
+        '''
+        import time
+        self.interrupted = True
+        # Wait until exited
+        while not self.exited:
+            time.sleep(0.01)
+    
+    def __del__(self) -> None:
+        '''
+        Destructor for the BatchedGame class.
+
+        This method is called when the BatchedGame instance is about to be destroyed.
+        It tries to interrupt ongoing games, but can still lead to undefined behavior.
+        However, it does not wait for the execution to finish, as the destructor should not block.
+
+        If the __call__ method is currently running, it is recommended to call the interrupt() method first to ensure a graceful exit.
+        '''
+        self.interrupted = True
