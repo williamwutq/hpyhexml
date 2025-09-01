@@ -162,12 +162,12 @@ if __name__ == "__main__":
     # Start generation
     print(f"\nStart generation of {total_files} files with {samples_per_file} samples each.")
     print("To abort, press Ctrl + C at any time.")
-    from hpyhexml.generator import generate_training_data, save_training_dataset
+    from hpyhexml.generator import generate_training_data_limited, save_training_dataset
     for i in range(total_files):
         print(f"Generating file {i + 1}/{total_files}...")
         try:
             if alg is not None:
-                data = generate_training_data(
+                data = generate_training_data_limited(
                     samples_per_file,
                     algorithm=alg,
                     engine_radius=engine_radius,
@@ -179,7 +179,7 @@ if __name__ == "__main__":
                     verbose=verbose
                 )
             else:
-                data = generate_training_data(
+                data = generate_training_data_limited(
                     samples_per_file,
                     engine_radius=engine_radius,
                     queue_size=queue_size,
