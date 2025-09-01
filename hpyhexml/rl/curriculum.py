@@ -290,7 +290,7 @@ def save_curriculum(name: str) -> None:
                 f.write(source)
         except Exception: pass
     
-def load_curriculum(name: str) -> None:
+def load_curriculum(name: str, require_data: bool = False, require_func: bool = False) -> None:
     '''
     Loads a curriculum by name from saved files.
 
@@ -304,6 +304,8 @@ def load_curriculum(name: str) -> None:
 
     Parameters:
         name (str): The name of the curriculum to load.
+        require_data (bool): If True, raises an error if no engine data file is found.
+        require_func (bool): If True, raises an error if no generator function file is found.
     Raises:
         ValueError: If the curriculum name already exists or if the loaded engines have inconsistent radius.
     '''
@@ -325,15 +327,19 @@ def load_curriculum(name: str) -> None:
         radius = engines[0].radius
         if not all(e.radius == radius for e in engines):
             raise ValueError("All loaded engines must have the same radius.")
-    elif callable(func):
+    elif require_data:
+        raise ValueError(f"No engine data file found for curriculum '{name}'.")
+    if callable(func):
         import inspect
         sig = inspect.signature(func)
         params = sig.parameters
         if 'radius' in params:
             radius = 1  # Default radius if no engines are loaded
-        else:
+        elif require_func:
             raise ValueError("Loaded function must accept 'radius' parameter.")
-    else:
+        else:
+            func = None
+    elif require_func:
         raise ValueError("Cannot determine radius for curriculum without engines or a valid function.")
     curricula[name] = (radius, func, engines)
 
