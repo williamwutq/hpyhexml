@@ -263,7 +263,7 @@ def clear_curriculum(name: str) -> None:
         raise ValueError(f"Curriculum '{name}' not found.")
     curricula[name] = (curricula[name][0], curricula[name][1], [])
 
-def save_curriculum(name: str) -> None:
+def save_curriculum(name: str, directory: str = None) -> None:
     '''
     Saves the current state of a curriculum by name.
 
@@ -273,24 +273,32 @@ def save_curriculum(name: str) -> None:
 
     Parameters:
         name (str): The name of the curriculum to save.
+        directory (str, optional): The directory to save the curriculum files to. If None, uses the current directory.
     Raises:
         ValueError: If the curriculum name does not exist.
     '''
     if name not in curricula:
         raise ValueError(f"Curriculum '{name}' not found.")
     from hpyhexml import generator
-    generator.save_engine_states(curricula[name][2], f"{name}.txt")
+    if directory:
+        generator.save_engine_states(curricula[name][2], f"{directory}/{name}.txt")
+    else:
+        generator.save_engine_states(curricula[name][2], f"{name}.txt")
     func = curricula[name][1]
     if callable(func):
         import inspect, textwrap
         try:
             source = inspect.getsource(func)
             source = textwrap.dedent(source)
-            with open(f"{name}_gen.py", "w") as f:
-                f.write(source)
+            if directory:
+                with open(f"{directory}/{name}_gen.py", "w") as f:
+                    f.write(source)
+            else:
+                with open(f"{name}_gen.py", "w") as f:
+                    f.write(source)
         except Exception: pass
     
-def load_curriculum(name: str, require_data: bool = False, require_func: bool = False) -> None:
+def load_curriculum(name: str, require_data: bool = False, require_func: bool = False, directory: str = None) -> None:
     '''
     Loads a curriculum by name from saved files.
 
@@ -306,16 +314,21 @@ def load_curriculum(name: str, require_data: bool = False, require_func: bool = 
         name (str): The name of the curriculum to load.
         require_data (bool): If True, raises an error if no engine data file is found.
         require_func (bool): If True, raises an error if no generator function file is found.
+        directory (str, optional): The directory to load the curriculum files from. If None, uses the current directory.
     Raises:
         ValueError: If the curriculum name already exists or if the loaded engines have inconsistent radius.
     '''
     if name in curricula:
         raise ValueError(f"Curriculum '{name}' already exists.")
     from hpyhexml import generator
-    engines = generator.load_engine_states(f"{name}.txt")
+    if directory:
+        engines = generator.load_engine_states(f"{directory}/{name}.txt")
+    else:
+        engines = generator.load_engine_states(f"{name}.txt")
     func = None
+    function_file_path = f"{directory}/{name}_gen.py" if directory else f"{name}_gen.py"
     try:
-        with open(f"{name}_gen.py", "r") as f:
+        with open(function_file_path, "r") as f:
             code = f.read()
             local_vars = {}
             exec(code, {}, local_vars)
