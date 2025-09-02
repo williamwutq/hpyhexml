@@ -53,6 +53,8 @@ class SinglePieceBatchedRLTrainer:
             log_probs.append(chosen_logp)
             # Value prediction
             value_pred = self.critic(inputs, training=True)
+            # This is shaped [batch, 1], convert to [batch]
+            value_pred = tf.squeeze(value_pred, axis=1)
             values.append(value_pred)
             # Return moves
             moves = self.__action_to_moves(action_dist, engines, queues)
@@ -67,6 +69,22 @@ class SinglePieceBatchedRLTrainer:
 
         # Run batched game once
         env(algorithm_wrapper, feedback_wrapper, limit=limit)
+
+        # Expand size to [T, batch], fill empty with 0
+        def pad_to_max_T(tensor_list):
+            padded = []
+            for t in tensor_list:
+                pad_size = env.max_batch_size - t.shape[0]
+                if pad_size > 0:
+                    padding = tf.zeros([pad_size] + t.shape[1:].as_list(), dtype=t.dtype)
+                    padded.append(tf.concat([t, padding], axis=0))
+                else:
+                    padded.append(t)
+            return padded
+        log_probs = pad_to_max_T(log_probs)
+        values = pad_to_max_T(values)
+        rewards = pad_to_max_T(rewards)
+        masks = pad_to_max_T(masks)
 
         # Convert lists to tensors
         log_probs = tf.stack(log_probs)        # [T, batch]
@@ -109,8 +127,7 @@ class SinglePieceBatchedRLTrainer:
         for t in reversed(range(T)):
             running_return = rewards[t] + gamma * running_return * masks[t]
             returns = returns.write(t, running_return)
-        returns = tf.transpose(returns.stack(), perm=[1, 0])
-        return returns
+        return returns.stack()
     
     def __action_to_moves(self, action_indices, engines, queues):
         '''
