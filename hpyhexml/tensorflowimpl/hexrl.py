@@ -1,10 +1,15 @@
 import tensorflow as tf
 from .. import hex as hx
 
-class SinglePieceBatchedRLTrainer:
+'''
+Contains a simple batched RL training loop using BatchedGame, an agent (policy) and a critic (value network).
+Uses REINFORCE with a baseline from the critic. Built for multi-piece queues.
+'''
+
+class BatchedRLTrainer:
     '''
     A simple batched RL training loop using BatchedGame, an agent (policy) and a critic (value network).
-    Uses REINFORCE with a baseline from the critic. Built for single-piece queues or single-piece virtual queues.
+    Uses REINFORCE with a baseline from the critic. Built for multi-piece queues.
     '''
 
     def __init__(self, agent, critic, agent_optimizer, critic_optimizer, gamma=0.99):
