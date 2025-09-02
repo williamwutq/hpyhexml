@@ -36,10 +36,11 @@ class SinglePieceBatchedRLTrainer:
         '''
         if not callable(env):
             raise ValueError("env must be a callable BatchedGame instance.")
-        log_probs = []
         values = []
         rewards = []
         masks = []
+        obs_inputs = []
+        taken_actions = []
 
         def algorithm_wrapper(engines, queues):
             # Policy forward pass
@@ -47,10 +48,9 @@ class SinglePieceBatchedRLTrainer:
             logits = self.agent(inputs, training=True)
             action_dist = tf.random.categorical(logits, 1)
             action_dist = tf.squeeze(action_dist, axis=1)
-            # Log-prob for policy loss
-            logp_all = tf.nn.log_softmax(logits)
-            chosen_logp = tf.gather(logp_all, action_dist, batch_dims=1)
-            log_probs.append(chosen_logp)
+            # Cache inputs and actions
+            obs_inputs.append(inputs)
+            taken_actions.append(action_dist)
             # Value prediction
             value_pred = self.critic(inputs, training=True)
             # This is shaped [batch, 1], convert to [batch]
@@ -81,35 +81,51 @@ class SinglePieceBatchedRLTrainer:
                 else:
                     padded.append(t)
             return padded
-        log_probs = pad_to_max_T(log_probs)
+        obs_inputs = pad_to_max_T(obs_inputs)
+        taken_actions = pad_to_max_T(taken_actions)
         values = pad_to_max_T(values)
         rewards = pad_to_max_T(rewards)
         masks = pad_to_max_T(masks)
 
         # Convert lists to tensors
-        log_probs = tf.stack(log_probs)        # [T, batch]
+        obs_inputs = tf.stack(obs_inputs)      # [T, batch, input_dim]
+        taken_actions = tf.stack(taken_actions)  # [T, batch]
         values = tf.stack(values)              # [T, batch]
-        rewards = tf.stack(rewards)            # [T, batch]
-        masks = tf.stack(masks)                # [T, batch]
+        rewards = tf.stack(rewards)
+        masks = tf.stack(masks)
 
-        # Compute returns
+        # After env run and computing returns/advantages:
         returns = self.__compute_returns(rewards, masks, self.gamma)
         returns = tf.stop_gradient(returns)
-
-        # Advantage
-        advantages = returns - values
+        advantages = returns - values  # keep values from rollout for now
+    
+        # Flatten [T, B, input_dim] → [T*B, input_dim]
+        T, B, input_dim = obs_inputs.shape
+        flat_inputs = tf.reshape(obs_inputs, [T * B, input_dim])
+        flat_actions = tf.reshape(taken_actions, [T * B])
 
         # Update policy
         with tf.GradientTape() as tape:
-            policy_loss = -tf.reduce_mean(log_probs * advantages)
+            # Forward pass with flattened inputs
+            logits = self.agent(flat_inputs, training=True)  # [T*B, num_actions]
+            logp_all = tf.nn.log_softmax(logits, axis=-1)    
+            # Gather log-probs of taken actions
+            chosen_logp = tf.gather(logp_all, flat_actions, batch_dims=1)  # [T*B]
+            chosen_logp = tf.reshape(chosen_logp, [T, B])  # back to [T, B]
+            policy_loss = -tf.reduce_mean(chosen_logp * advantages)
+
         grads = tape.gradient(policy_loss, self.agent.trainable_variables)
         self.agent_optimizer.apply_gradients(zip(grads, self.agent.trainable_variables))
 
-        # Update critic (MSE loss on returns)
+        # Critic update (MSE loss on returns)
         with tf.GradientTape() as tape:
-            value_loss = tf.reduce_mean(tf.square(values - returns))
-        grads = tape.gradient(value_loss, self.critic.trainable_variables)
-        self.critic_optimizer.apply_gradients(zip(grads, self.critic.trainable_variables))
+            # Forward pass with flattened inputs
+            value_preds = self.critic(flat_inputs, training=True)   # [T*B, 1] or [T*B]
+            value_preds = tf.squeeze(value_preds, axis=-1)          # [T*B]
+            value_preds = tf.reshape(value_preds, [T, B])           # [T, B]
+            value_loss = tf.reduce_mean(tf.square(value_preds - returns))
+            grads = tape.gradient(value_loss, self.critic.trainable_variables)
+            self.critic_optimizer.apply_gradients(zip(grads, self.critic.trainable_variables))
 
         return {
             "policy_loss": float(policy_loss),
@@ -146,7 +162,6 @@ class SinglePieceBatchedRLTrainer:
         for batch_idx, action in enumerate(action_indices.numpy()):
             result_hex = engines[batch_idx].coordinate_block(int(action) % len(engines[batch_idx]))
             piece_index = int(action) // len(engines[batch_idx])
-            print(f"Batch {batch_idx}: Action {action} -> Piece index {piece_index}, Hex {result_hex}")
             moves.append((piece_index, result_hex))
         return moves
     
