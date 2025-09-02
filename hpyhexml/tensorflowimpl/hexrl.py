@@ -1,5 +1,6 @@
 import tensorflow as tf
 from .. import hex as hx
+import numpy as np
 
 '''
 Contains a simple batched RL training loop using BatchedGame, an agent (policy) and a critic (value network).
@@ -109,15 +110,19 @@ class BatchedRLTrainer:
         flat_inputs = tf.reshape(obs_inputs, [T * B, input_dim])
         flat_actions = tf.reshape(taken_actions, [T * B])
 
+        del obs_inputs, taken_actions, values, masks  # free memory
+
         # Update policy
         with tf.GradientTape() as tape:
             # Forward pass with flattened inputs
-            logits = self.agent(flat_inputs, training=True)  # [T*B, num_actions]
+            logits = self.__minibatch_forward(self.agent, flat_inputs, batch_size=256)  # [T*B, num_actions]
             logp_all = tf.nn.log_softmax(logits, axis=-1)    
             # Gather log-probs of taken actions
             chosen_logp = tf.gather(logp_all, flat_actions, batch_dims=1)  # [T*B]
             chosen_logp = tf.reshape(chosen_logp, [T, B])  # back to [T, B]
             policy_loss = -tf.reduce_mean(chosen_logp * advantages)
+
+        del logits, logp_all, chosen_logp
 
         grads = tape.gradient(policy_loss, self.agent.trainable_variables)
         self.agent_optimizer.apply_gradients(zip(grads, self.agent.trainable_variables))
@@ -125,20 +130,44 @@ class BatchedRLTrainer:
         # Critic update (MSE loss on returns)
         with tf.GradientTape() as tape:
             # Forward pass with flattened inputs
-            value_preds = self.critic(flat_inputs, training=True)   # [T*B, 1] or [T*B]
+            value_preds = self.__minibatch_forward(self.critic, flat_inputs, batch_size=256)  # [T*B, 1]
             value_preds = tf.squeeze(value_preds, axis=-1)          # [T*B]
             value_preds = tf.reshape(value_preds, [T, B])           # [T, B]
             value_loss = tf.reduce_mean(tf.square(value_preds - returns))
+        
+        del value_preds
 
         grads = tape.gradient(value_loss, self.critic.trainable_variables)
         self.critic_optimizer.apply_gradients(zip(grads, self.critic.trainable_variables))
+        
+        del flat_inputs, flat_actions, returns, advantages
+
+        # Compute losses and average reward
+        return_policy_loss = float(policy_loss)
+        return_value_loss = float(value_loss)
+        avg_reward = float(tf.reduce_mean(rewards))
+
+        del tape, grads, policy_loss, value_loss, rewards
+        del env
+        tf.keras.backend.clear_session()
 
         return {
-            "policy_loss": float(policy_loss),
-            "value_loss": float(value_loss),
-            "avg_reward": float(tf.reduce_mean(rewards))
+            "policy_loss": return_policy_loss,
+            "value_loss": return_value_loss,
+            "avg_reward": avg_reward
         }
 
+    def __minibatch_forward(self, model, inputs, batch_size):
+        '''
+        Run a model forward pass in smaller minibatches to save memory.
+        '''
+        outputs = []
+        for i in range(0, inputs.shape[0], batch_size):
+            batch = inputs[i:i + batch_size]
+            outputs.append(model(batch, training=True))
+        return tf.concat(outputs, axis=0)
+
+    @tf.function
     def __compute_returns(self, rewards, masks, gamma):
         '''
         Compute discounted returns with episode masking.
@@ -182,11 +211,9 @@ class BatchedRLTrainer:
         Returns:
             tuple: (engine_inputs, queue_inputs)
         '''
-        tensor_inputs = []
+        data_list = []
         for i in range(len(engines)):
-            data = hx.flatten_engine(engines[i]) + hx.flatten_queue(queues[i])
-            # Convert to tensor
-            data = tf.convert_to_tensor(data, dtype=tf.float32)
-            tensor_inputs.append(data)
-        # Stack all inputs into a single tensor
-        return tf.stack(tensor_inputs, axis=0)  # Shape: [batch, input_size]
+            flat_data = hx.flatten_engine(engines[i]) + hx.flatten_queue(queues[i])
+            data_list.append(flat_data)
+        batch_np = np.stack(data_list, axis=0).astype(np.float32)
+        return tf.convert_to_tensor(batch_np)
