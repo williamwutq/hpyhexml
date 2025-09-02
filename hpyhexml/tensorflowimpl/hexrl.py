@@ -129,8 +129,9 @@ class BatchedRLTrainer:
             value_preds = tf.squeeze(value_preds, axis=-1)          # [T*B]
             value_preds = tf.reshape(value_preds, [T, B])           # [T, B]
             value_loss = tf.reduce_mean(tf.square(value_preds - returns))
-            grads = tape.gradient(value_loss, self.critic.trainable_variables)
-            self.critic_optimizer.apply_gradients(zip(grads, self.critic.trainable_variables))
+
+        grads = tape.gradient(value_loss, self.critic.trainable_variables)
+        self.critic_optimizer.apply_gradients(zip(grads, self.critic.trainable_variables))
 
         return {
             "policy_loss": float(policy_loss),
