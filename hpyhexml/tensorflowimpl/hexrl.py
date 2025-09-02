@@ -127,8 +127,10 @@ class SinglePieceBatchedRLTrainer:
         '''
         moves = []
         for batch_idx, action in enumerate(action_indices.numpy()):
-            result_hex = engines[batch_idx].coordinate_block(int(action))
-            moves.append((0, result_hex)) # single-piece queue, so always 0
+            result_hex = engines[batch_idx].coordinate_block(int(action) % len(engines[batch_idx]))
+            piece_index = int(action) // len(engines[batch_idx])
+            print(f"Batch {batch_idx}: Action {action} -> Piece index {piece_index}, Hex {result_hex}")
+            moves.append((piece_index, result_hex))
         return moves
     
     def __env_to_input(self, engines, queues):
