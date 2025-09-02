@@ -429,6 +429,49 @@ def algo_based_startgame(alg: callable, radius: int, queue_length: int, **kwargs
     # Create the curriculum
     create_curriculum(curriculum_name, radius, startgame_func)
 
+def random_curriculum(radius: int, queue_length: int, **kwargs) -> None:
+    '''
+    Create a curriculum of random game engines of a certain radius.
+
+    Parameters:
+        radius (int): The radius of the HexEngine instances in this curriculum.
+        queue_length (int): The length of the queue for each game for the algorithm to use.
+    Keyword Args:
+        curriculum_name (str): The name of the curriculum. Defaults to `random_{radius}`.
+    Raises:
+        TypeError: If parameters are not of the expected types.
+        ValueError: If the curriculum name already exists.
+    '''
+    # Parse and validate parameters
+    if not isinstance(radius, int) or radius <= 0:
+        raise TypeError("radius must be a positive integer.")
+    if not isinstance(queue_length, int) or queue_length <= 0:
+        raise TypeError("queue_length must be a positive integer.")
+    curriculum_name = kwargs.get('curriculum_name', f"random_{radius}")
+    if not isinstance(curriculum_name, str):
+        curriculum_name = str(curriculum_name)
+    if not curriculum_name:
+        raise ValueError("curriculum_name must be a non-empty string.")
+    if curriculum_name in curricula:
+        raise ValueError(f"Curriculum '{curriculum_name}' already exists.")
+    # Define function
+    def random_func(radius: int, count: int = None) -> HexEngine | list[HexEngine]:
+        '''
+        Generate one or more random HexEngine instances.
+
+        Parameters:
+            radius (int): The radius of the HexEngine instance(s).
+            count (int, optional): The number of HexEngine instances to generate. If None, generate one instance.
+        Returns:
+            HexEngine or list[HexEngine]: A new HexEngine instance, or a list of HexEngine instances if count is specified.
+        '''
+        if count is None:
+            return random_engine(radius)
+        else:
+            return [random_engine(radius) for _ in range(count)]
+    # Create the curriculum
+    create_curriculum(curriculum_name, radius, random_func)
+
 def algo_based_endgame(alg: callable, radius: int, queue_length: int, **kwargs) -> None:
     '''
     Create a curriculum for game end stage for engines of a certain radius based on an algorithm.
