@@ -131,7 +131,6 @@ class BatchedGame:
             for idx, (piece_index, coord) in zip(active_indices, moves):
                 if not self.active[idx]:
                     # This should never be reached
-                    delta_results.append((0, 0, self.moves[idx]))
                     continue
 
                 engine = self.engines[idx]
