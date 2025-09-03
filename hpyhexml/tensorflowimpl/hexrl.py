@@ -76,50 +76,30 @@ class BatchedRLTrainer:
         # Run batched game once
         env(algorithm_wrapper, feedback_wrapper, limit=limit)
 
-        # Expand size to [T, batch], fill empty with 0
-        def pad_to_max_T(tensor_list):
-            padded = []
-            for t in tensor_list:
-                pad_size = env.max_batch_size - t.shape[0]
-                if pad_size > 0:
-                    padding = tf.zeros([pad_size] + t.shape[1:].as_list(), dtype=t.dtype)
-                    padded.append(tf.concat([t, padding], axis=0))
-                else:
-                    padded.append(t)
-            return padded
-        obs_inputs = pad_to_max_T(obs_inputs)
-        taken_actions = pad_to_max_T(taken_actions)
-        values = pad_to_max_T(values)
-        rewards = pad_to_max_T(rewards)
-        masks = pad_to_max_T(masks)
-
-        # Convert lists to tensors
-        obs_inputs = tf.stack(obs_inputs)      # [T, batch, input_dim]
-        taken_actions = tf.stack(taken_actions)  # [T, batch]
-        values = tf.stack(values)              # [T, batch]
-        rewards = tf.stack(rewards)
-        masks = tf.stack(masks)
-
         # After env run and computing returns/advantages:
         returns = self.__compute_returns(rewards, masks, self.gamma)
         returns = tf.stop_gradient(returns)
+        # Convert lists to tensors
+        obs_inputs = tf.concat(obs_inputs, axis=0)      # [T, batch, input_dim]
+        taken_actions = tf.concat(taken_actions, axis=0)  # [T, batch]
+        values = tf.concat(values, axis=0)              # [T, batch]
+        rewards = tf.concat(rewards, axis=0)
+        masks = tf.concat(masks, axis=0)
+
         advantages = returns - values  # keep values from rollout for now
     
-        # Flatten [T, B, input_dim] → [T*B, input_dim]
-        T, B, input_dim = obs_inputs.shape
-        flat_inputs = tf.reshape(obs_inputs, [T * B, input_dim])
-        flat_actions = tf.reshape(taken_actions, [T * B])
+        # Get shapes
+        T, _ = obs_inputs.shape
 
-        del obs_inputs, taken_actions, values, masks  # free memory
+        del values, masks  # free memory
 
         # Update policy
         with tf.GradientTape() as tape:
             # Forward pass with flattened inputs
-            logits = self.__minibatch_forward(self.agent, flat_inputs, batch_size=256)  # [T*B, num_actions]
-            logp_all = tf.nn.log_softmax(logits, axis=-1)    
+            logits = self.__minibatch_forward(self.agent, obs_inputs, batch_size=256)  # [T*B, num_actions]
+            logp_all = tf.nn.log_softmax(logits, axis=-1)
             # Gather log-probs of taken actions
-            chosen_logp = tf.gather(logp_all, flat_actions, batch_dims=1)  # [T*B]
-            chosen_logp = tf.reshape(chosen_logp, [T, B])  # back to [T, B]
+            chosen_logp = tf.gather(logp_all, taken_actions, batch_dims=1)  # [T]
             policy_loss = -tf.reduce_mean(chosen_logp * advantages)
 
         del logits, logp_all, chosen_logp
@@ -130,9 +110,7 @@ class BatchedRLTrainer:
         # Critic update (MSE loss on returns)
         with tf.GradientTape() as tape:
             # Forward pass with flattened inputs
-            value_preds = self.__minibatch_forward(self.critic, flat_inputs, batch_size=256)  # [T*B, 1]
-            value_preds = tf.squeeze(value_preds, axis=-1)          # [T*B]
-            value_preds = tf.reshape(value_preds, [T, B])           # [T, B]
+            value_preds = self.__minibatch_forward(self.critic, obs_inputs, batch_size=256)  # [T*B, 1]
             value_loss = tf.reduce_mean(tf.square(value_preds - returns))
         
         del value_preds
@@ -140,7 +118,7 @@ class BatchedRLTrainer:
         grads = tape.gradient(value_loss, self.critic.trainable_variables)
         self.critic_optimizer.apply_gradients(zip(grads, self.critic.trainable_variables))
         
-        del flat_inputs, flat_actions, returns, advantages
+        del obs_inputs, taken_actions, returns, advantages
 
         # Compute losses and average reward
         return_policy_loss = float(policy_loss)
@@ -171,14 +149,19 @@ class BatchedRLTrainer:
     def __compute_returns(self, rewards, masks, gamma):
         '''
         Compute discounted returns with episode masking.
+            Works with lists of tensors of varying shapes.
+        Each rewards[t] and masks[t] must have the same shape.
         '''
-        T, B = rewards.shape
-        returns = tf.TensorArray(dtype=tf.float32, size=T)
-        running_return = tf.zeros([B], dtype=tf.float32)
+        T = len(rewards)
+        returns = [None] * T
+
         for t in reversed(range(T)):
-            running_return = rewards[t] + gamma * running_return * masks[t]
-            returns = returns.write(t, running_return)
-        return returns.stack()
+            r_t = rewards[t]
+            m_t = masks[t]
+
+            returns[t] = r_t + gamma * m_t
+
+        return tf.concat(returns, axis=0)
     
     def __action_to_moves(self, action_indices, engines, queues):
         '''
