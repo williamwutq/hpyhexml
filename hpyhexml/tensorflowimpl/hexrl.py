@@ -42,56 +42,64 @@ class BatchedRLTrainer:
         '''
         if not callable(env):
             raise ValueError("env must be a callable BatchedGame instance.")
-        values = []
-        rewards = []
-        masks = []
-        obs_inputs = []
-        taken_actions = []
+        values = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, infer_shape=False)
+        rewards = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, infer_shape=False)
+        masks = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, infer_shape=False)
+        obs_inputs = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, infer_shape=False)
+        taken_actions = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True, infer_shape=False)
+
+        idx = 0
 
         def algorithm_wrapper(engines, queues):
+            nonlocal idx
+            nonlocal taken_actions, obs_inputs, values
             # Policy forward pass
             inputs = self.__env_to_input(engines, queues)
             logits = self.agent(inputs, training=True)
-            action_dist = tf.random.categorical(logits, 1)
+            action_dist = tf.random.categorical(logits, 1, dtype=tf.int32)
             action_dist = tf.squeeze(action_dist, axis=1)
             # Cache inputs and actions
-            obs_inputs.append(inputs)
-            taken_actions.append(action_dist)
+            obs_inputs = obs_inputs.write(idx, inputs)
+            taken_actions = taken_actions.write(idx, action_dist)
             # Value prediction
             value_pred = self.critic(inputs, training=True)
             # This is shaped [batch, 1], convert to [batch]
             value_pred = tf.squeeze(value_pred, axis=1)
-            values.append(value_pred)
+            values = values.write(idx, value_pred)
             # Return moves
             moves = self.__action_to_moves(action_dist, engines, queues)
+            # Increment step index
+            idx += 1
             return moves
 
         def feedback_wrapper(results):
+            nonlocal idx
+            nonlocal rewards, masks
             # results: list of (delta_turn, delta_score, total_moves)
             batch_rewards = tf.constant([r[1] for r in results], dtype=tf.float32)
-            rewards.append(batch_rewards)
-            done_mask = tf.constant([0.0 if r[0] == 0 else 1.0 for r in results], dtype=tf.float32)
-            masks.append(done_mask)
+            rewards = rewards.write(idx - 1, batch_rewards)
+            done_mask = tf.constant([0.0 if r[0] == 0 else self.gamma **idx for r in results], dtype=tf.float32)
+            masks = masks.write(idx - 1, done_mask)
 
         # Run batched game once
         env(algorithm_wrapper, feedback_wrapper, limit=limit)
 
-        # After env run and computing returns/advantages:
-        returns = self.__compute_returns(rewards, masks, self.gamma)
-        returns = tf.stop_gradient(returns)
         # Convert lists to tensors
-        obs_inputs = tf.concat(obs_inputs, axis=0)      # [T, batch, input_dim]
-        taken_actions = tf.concat(taken_actions, axis=0)  # [T, batch]
-        values = tf.concat(values, axis=0)              # [T, batch]
-        rewards = tf.concat(rewards, axis=0)
-        masks = tf.concat(masks, axis=0)
+        obs_inputs = obs_inputs.concat()
+        taken_actions = taken_actions.concat()
+        values = values.concat()
+        rewards = rewards.concat()
+        masks = masks.concat()
+        # After env run and computing returns/advantages:
+        returns = rewards * masks
+        returns = tf.stop_gradient(returns)
 
         advantages = returns - values  # keep values from rollout for now
     
         # Get shapes
         T, _ = obs_inputs.shape
 
-        del values, masks  # free memory
+        del values
 
         # Update policy
         with tf.GradientTape() as tape:
@@ -152,16 +160,21 @@ class BatchedRLTrainer:
             Works with lists of tensors of varying shapes.
         Each rewards[t] and masks[t] must have the same shape.
         '''
-        T = len(rewards)
-        returns = [None] * T
+        T = rewards.size()
+        returns = tf.TensorArray(
+            dtype=tf.float32,
+            size=T,
+            infer_shape=False  # allow ragged elements
+        )
 
-        for t in reversed(range(T)):
-            r_t = rewards[t]
-            m_t = masks[t]
+        # Iterate in reverse
+        for t in tf.range(T - 1, -1, -1):
+            r_t = rewards.read(int(t))
+            m_t = masks.read(int(t))
+        
+            returns = returns.write(t, gamma * m_t + r_t)
 
-            returns[t] = r_t + gamma * m_t
-
-        return tf.concat(returns, axis=0)
+        return returns.concat()
     
     def __action_to_moves(self, action_indices, engines, queues):
         '''
