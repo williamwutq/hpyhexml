@@ -570,7 +570,7 @@ class Piece:
         Returns:
             list[Piece]: A list of all possible Piece instances.
         '''
-        return (p for p in cls.__cache.values() if p) # Filter out empty Pieces
+        return [p for p in cls.__cache.values() if p] # Filter out empty Pieces
     
     @classmethod
     def contigous_pieces(cls) -> list['Piece']:
