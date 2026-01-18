@@ -11,3 +11,4 @@ Modules:
 - hex: Contains the HexEngine, Piece, and Hex classes for managing the game state.
 - game: Contains the Game class for simulating games and managing game logic.
 """
+version = "hpyhex-py-0.2.0.1"
