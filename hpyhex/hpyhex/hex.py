@@ -54,14 +54,37 @@ class Hex:
         i (int): The line i coordinate.
         j (int): The computed line j coordinate (k - i).
         k (int): The line k coordinate.
+
+    Serialization Guide:
+        Convert to tuple using tuple(hex) to get (i, k) representation.
+        To deserialize, use Hex(i, k) or Hex((i, k)) to create a new Hex instance.
+        You should choose a consistent format to serialize tuples.
     """
     __slots__ = ('__i', '__k')
     __cache_min = -64
     __cache_max = 64
     __cache = {}
 
-    def __new__(cls, i=0, k=0) -> 'Hex':
+    def __new__(cls, i: Union[int, tuple]=0, k: int=0) -> 'Hex':
+        '''
+        Create a new Hex coordinate at (i, k) or from a tuple. Defaults to (0, 0).
+        Arguments:
+            i (int | tuple): The I-line coordinate of the hex, or a tuple of coordinates.
+            k (int): The K-line coordinate of the hex.
+        Returns:
+            Hex: A new Hex instance representing the specified coordinates.
+        Raises:
+            TypeError: If i or k is not an integer, or if a tuple is not of valid length.
+            ValueError: If a tuple of length 3 does not satisfy i + j + k = 0.
+        '''
         if not isinstance(i, int) or not isinstance(k, int):
+            if isinstance(i, tuple):
+                if len(i) == 2:
+                    return cls(i[0], i[1])
+                elif len(i) == 3:
+                    if i[0] + i[1] + i[2] != 0:
+                        raise ValueError("Invalid hex coordinates: i + j + k must equal 0")
+                    return cls(i[0], i[2])
             raise TypeError("Coordinates must be integers")
         if cls.__cache_min <= i <= cls.__cache_max and cls.__cache_min <= k <= cls.__cache_max:
             key = (i, k)
@@ -338,12 +361,29 @@ class Piece:
     Attributes:
         positions (list[Hex]): A list of Hex coordinates representing the positions of the blocks in the piece.
         states (list[bool]): A list of boolean values representing the occupancy state of each block in the piece.
+
+    Serialization Guide:
+        Convert to integer using int(piece) to get a byte representation of the piece.
+        Each bit in the byte represents the occupancy state of a block, with 1 for occupied and 0 for unoccupied.
+        To deserialize, use Piece(byte) to retrieve the corresponding Piece instance from the cache.
     """
     __slots__ = ('__states',)
     __cache = {}
     positions = (Hex(-1, -1), Hex(-1, 0), Hex(0, -1), Hex(0, 0), Hex(0, 1), Hex(1, 0), Hex(1, 1))
 
     def __new__(cls, states: Union[list[bool], int] = None) -> 'Piece':
+        '''
+        Create or retrieve a cached Piece instance based on the occupancy states.
+        Arguments:
+            states (list[bool] | int, optional):
+                - A list of 7 boolean values representing the occupancy state of each block.
+                - An integer between 0 and 127, where each bit represents the occupancy state of a block.
+                - None, which defaults to an empty piece (all blocks unoccupied).
+        Raises:
+            TypeError: If states is not a list of boolean values or a valid byte.
+        Returns:
+            Piece: A Piece instance representing the specified occupancy states.
+        '''
         if isinstance(states, int):
             key = states
         elif states is None:
@@ -597,6 +637,14 @@ class HexEngine:
     Attributes:
         radius (int): The radius of the hexagonal grid, defining the size of the grid.
         states (list[bool]): A list of booleans representing the occupancy state of each block in the grid.
+
+    Serialization Guide:
+        Convert to string using str(engine) to get a representation of the grid states.
+        Each character in the string represents the occupancy state of a block, with '1' for occupied and '0' for unoccupied.
+        To deserialize, use HexEngine(string) to create a new HexEngine instance with the specified states.
+        
+        Or, if you prefer a boolean list representation, use engine.states to get the list of occupancy states. To deserialize
+        from a boolean list, use HexEngine(list) to create a new HexEngine instance.
     '''
     __slots__ = ('__radius', '__states')
     @staticmethod
