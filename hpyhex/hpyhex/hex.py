@@ -729,8 +729,8 @@ class HexEngine:
                 - A list of booleans representing the occupancy state of each block.
                 - A string representation of the occupancy state, either as 'X'/'O' or '1'/'0'.
         Raises:
-            TypeError: If radius is not an integer.
-            ValueError: If radius is less than 1.
+            TypeError: If radius is not an integer greater than 0, or if the list contains non-boolean values.
+            ValueError: If radius is less than 1, or if the length of the list/string does not match a valid hexagonal grid size.
         '''
         if isinstance(arg, int):
             if arg < 1:
@@ -889,7 +889,7 @@ class HexEngine:
 
         This method is heavily optimized for performance and achieves O(1) complexity by using direct index formulas
         based on the hexagonal grid's structure. It calculates the index based on the I and K coordinates of the Hex.
-        Args:
+        Arguments:
             coo: The Hex coordinate.
         Returns:
             int: Index of the block, or -1 if not found.
@@ -918,7 +918,7 @@ class HexEngine:
 
         This method retrieves the Hex coordinate based on the index in the hexagonal grid.
         If the index is out of range, raise ValueError.
-        Args:
+        Arguments:
             index (int): The index of the block.
         Returns:
             Hex: The Hex coordinate of the block.
@@ -948,8 +948,8 @@ class HexEngine:
 
         This method retrieves the Block state based on either a Hex coordinate or an index.
         If the coordinate is out of range, raise ValueError.
-        Args:
-            coo: The Hex coordinate or index of the block.
+        Arguments:
+            coo (Hex | tuple | int): The Hex coordinate or index of the block to get.
         Returns:
             state (bool): The occupancy state at the specified coordinate or index.
         Raises:
@@ -976,8 +976,8 @@ class HexEngine:
         This method updates the state of a Block at the given coordinate.
         If the coordinate is out of range, raise ValueError.
 
-        Args:
-            coo: The Hex coordinate of the block to set.
+        Arguments:
+            coo (Hex | tuple | int): The Hex coordinate or index of the block to set.
             state (bool): The new occupancy state to set for the block.
 
         Raises:
@@ -1024,8 +1024,9 @@ class HexEngine:
         any existing occupied blocks. It returns True if the Piece can be added,
         otherwise returns False.
 
-        Args:
-            piece (Piece): The Piece to check for addition.
+        Arguments:
+            coo (Hex | tuple): The Hex coordinate to check for addition.
+            piece (Piece | int): The Piece to check for addition.
         Returns:
             bool: True if the Piece can be added, False otherwise.
         Raises:
@@ -1053,8 +1054,9 @@ class HexEngine:
         the blocks based on the Piece's states. If the Piece cannot be added due to
         overlaps or out-of-range coordinates, it raises a ValueError.
 
-        Args:
-            piece (Piece): The Piece to add to the grid.
+        Arguments:
+            coo (Hex | tuple): The Hex coordinate to add the Piece.
+            piece (Piece | int): The Piece to add to the grid.
         Raises:
             TypeError: If the piece is not a valid Piece instance.
             ValueError: If the Piece cannot be added due to overlaps or out-of-range coordinates.
@@ -1080,7 +1082,7 @@ class HexEngine:
         of the occupied blocks.
         If the Piece is not valid, it raises a ValueError.
 
-        Args:
+        Arguments:
             piece (Piece): The Piece to check for occupied positions.
         Returns:
             list[Hex]: A list of Hex coordinates for the occupied blocks in the Piece.
@@ -1106,7 +1108,7 @@ class HexEngine:
         Modifies the grid permanently.
 
         Returns:
-            List[Hex]: coordinates eliminated.
+            List[Hex]: A list of Hex coordinates that were eliminated.
         '''
         eliminate = []
         # Find candidates
@@ -1123,7 +1125,7 @@ class HexEngine:
         Identify coordinates along I axis that can be eliminated and insert them into the input list
 
         Arguments:
-            eliminate: The list of coordinates to insert into.
+            eliminate (list[Hex]): The list of coordinates to insert into.
         '''
         r = self.__radius
         for i in range(r):
@@ -1201,7 +1203,7 @@ class HexEngine:
         '''
         Identify coordinates along K axis that can be eliminated and insert them into the input list
 
-        Args:
+        Arguments:
             eliminate: The list of coordinates to insert into.
         '''
         radius = self.__radius
@@ -1255,7 +1257,7 @@ class HexEngine:
         Checks up to six adjacent positions to the block at Hex coordinate.
         A neighbor is occupied if the block is null or its state is True.
 
-        Parameters:
+        Arguments:
             coo (Hex | tuple): The Hex coordinate to check for neighbors.
         Returns:
             int: The count of occupied neighboring Blocks.
@@ -1292,7 +1294,7 @@ class HexEngine:
         and its six neighbors. If a neighboring position is out of range or contains a None block,
         it is treated as occupied or unoccupied based on the include_null flag.
 
-        Args:
+        Arguments:
             coo (Hex | tuple): The hex coordinate of the block at the center of the box.
 
         Returns:
@@ -1315,9 +1317,9 @@ class HexEngine:
         Returns a value between 0 and 1 representing surrounding density.
         A score of 1 means all surrounding blocks would be filled, 0 means the grid would be alone.
 
-        Args:
-            coo: Position for hypothetical placement.
-            piece: The Piece to evaluate.
+        Arguments:
+            coo (Hex): Position for hypothetical placement.
+            piece (Piece): The Piece to evaluate for placement.
 
         Returns:
             float: Density index (0 to 1), or 0 if placement is invalid or no neighbors exist.
@@ -1388,7 +1390,7 @@ class HexEngine:
         For large radius values, this method may take a long time and significant resource to compute due to the exponential growth of possible states.
         It is recommended to cache the results for specific radius values to avoid recomputation. HexEngine does not provide a dictionary for caching such data.
 
-        Parameters:
+        Arguments:
             radius (int): The radius of the hexagonal grid for which to generate all possible HexEngines.
         Returns:
             list[HexEngine]: A list of HexEngine instances representing all valid occupancy states for the specified radius.
