@@ -1,6 +1,9 @@
 import torch
 import numpy as np
-from hpyhex.hex import HexEngine, Piece, Hex
+try:
+    from hpyhex import HexEngine, Piece, Hex
+except ImportError:
+    from hpyhex.hex import HexEngine, Piece, Hex
 from .. import hex as hx
 
 # Check for CUDA (NVIDIA GPUs)

@@ -7,7 +7,10 @@ which is essential for defining the convolutional operations in a hexagonal grid
 import tensorflow as tf
 import keras
 from keras.layers import Layer
-from hpyhex.hex import Hex, HexEngine
+try:
+    from hpyhex import HexEngine, Hex
+except ImportError:
+    from hpyhex.hex import HexEngine, Hex
 
 def precompute_neighbor_index_map(radius: int) -> dict[int, tuple[int, int, int, int, int, int, int]]:
     '''

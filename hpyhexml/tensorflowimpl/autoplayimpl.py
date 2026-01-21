@@ -1,5 +1,8 @@
 import keras
-from hpyhex.hex import HexEngine, Piece, Hex
+try:
+    from hpyhex import HexEngine, Piece, Hex
+except ImportError:
+    from hpyhex.hex import HexEngine, Piece, Hex
 import tensorflow as tf
 import numpy as np
 from .. import hex as hx

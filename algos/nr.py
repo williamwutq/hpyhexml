@@ -4,7 +4,10 @@ These algorithms are designed to select the best piece and position based on var
 such as dense index, score gain, and entropy.
 '''
 
-from hpyhex.hex import HexEngine, Piece, Hex
+try:
+    from hpyhex import HexEngine, Piece, Hex
+except ImportError:
+    from hpyhex.hex import HexEngine, Piece, Hex
 from math import exp
 
 __all__ = ['nrminimax', 'nrminimaxmix', 'nrminimaxeven', 'nrentropy', 'nrsearch', 'nrdenseindex', 'nrscoreindex', 'nrnaivescoreindex', 'nrbineliminate', 'nrsearchworst']

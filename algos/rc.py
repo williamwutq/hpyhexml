@@ -4,8 +4,12 @@ These algorithms are designed to select the best piece and position based on var
 such as dense index, score gain, and entropy.
 '''
 
-from hpyhex.hex import HexEngine, Piece, Hex
-from hpyhex.game import PieceFactory as pf
+try:
+    from hpyhex import HexEngine, Piece, Hex
+    from hpyhex import PieceFactory as pf
+except ImportError:
+    from hpyhex.hex import HexEngine, Piece, Hex
+    from hpyhex.game import PieceFactory as pf
 
 __all__ = ['rcminimax', 'rcsearch']
 

@@ -4,8 +4,11 @@ A batched game evironement for HappyHex, designed to be used with reinforcement 
 This module provides a way to run multiple games in parallel, allowing for efficient training of reinforcement learning models.
 '''
 
-from hpyhex.hex import HexEngine
-from hpyhex.game import PieceFactory
+try:
+    from hpyhex import HexEngine, PieceFactory
+except ImportError:
+    from hpyhex.hex import HexEngine
+    from hpyhex.game import PieceFactory
 from copy import deepcopy as clone
 
 __all__ = ['BatchedGame']

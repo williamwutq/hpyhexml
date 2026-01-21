@@ -1,4 +1,7 @@
-from hpyhex.hex import HexEngine, Piece, Hex
+try:
+    from hpyhex import HexEngine, Piece, Hex
+except ImportError:
+    from hpyhex.hex import HexEngine, Piece, Hex
 from random import random, shuffle
 from math import exp
 

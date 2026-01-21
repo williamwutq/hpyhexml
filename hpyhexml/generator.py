@@ -19,8 +19,11 @@ Functions:
 '''
 
 from random import random
-from hpyhex.hex import HexEngine, Piece, Hex
-from hpyhex.game import Game
+try:
+    from hpyhex import HexEngine, Piece, Hex, Game
+except ImportError:
+    from hpyhex.hex import HexEngine, Piece, Hex
+    from hpyhex.game import Game
 
 
 __all__ = ['save_training_dataset', 'load_training_data', 'generate_training_data', 'save_engine_states', 'load_engine_states']

@@ -6,7 +6,10 @@ These algorithms include:
 - `first`: A first selection algorithm that selects the first valid piece and position.
 '''
 
-from hpyhex.hex import HexEngine, Piece, Hex
+try:
+    from hpyhex import HexEngine, Piece, Hex
+except ImportError:
+    from hpyhex.hex import HexEngine, Piece, Hex
 import random as rd
 
 __all__ = ['random', 'first']

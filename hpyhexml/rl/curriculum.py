@@ -5,8 +5,11 @@ Contains helpers for defining game stages and managing curriculum.
 For efficiency, this package provides caching for game stages and curriculum definitions.
 '''
 
-from hpyhex.hex import HexEngine
-from hpyhex.game import Game, random_engine
+try:
+    from hpyhex import HexEngine, Game, random_engine
+except ImportError:
+    from hpyhex.hex import HexEngine
+    from hpyhex.game import Game, random_engine
 from random import random, choice
 from copy import deepcopy as clone
 
