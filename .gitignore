@@ -26,3 +26,6 @@ test_*.py
 test.py
 */test_*.py
 */test.py
+
+### Rust ###
+target/

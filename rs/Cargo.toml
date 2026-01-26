@@ -1,0 +1,8 @@
+[package]
+name = "hpyhex-quickcompile"
+description = "Compile txt serialized training data into hpyhex-rs crate supported binary serialization format"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hpyhex-rs = { version = "0.1.2", features = ["core"] }
