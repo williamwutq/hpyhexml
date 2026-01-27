@@ -28,3 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fix Piece.all_pieces() method to return list instead of generator.
 
+## [UNRELEASED]
+
+### Added
+- Expanded documentation with detailed description of the API, including all classes and functions.
+
+### Changed
+- Refactor solve_radius method in HexEngine for O(1) performance. The original implementation had O(sqrt(n)) complexity due to solving quadratic equation by trial and error. The new implementation uses direct mathematical formula for constant time complexity.
+
