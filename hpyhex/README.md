@@ -26,6 +26,10 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 2. Import and use the main classes as shown above.
 3. Create custom algorithms to interact with the game environment.
 
+## Other Implementations
+
+- [hpyhex-rs](https://github.com/williamwutq/hpyhex-rs): A Rust implementation of the `hpyhex` API defined in this package. This implementation claims to offer significant performance improvements over the Python version, but only include the stable core and game API without benchmarking functions or extended API, nor does it plan to include them in the future. See its documentation for more details.
+
 ## Usage
 ```python
 from hpyhex.hex import Hex, Piece, HexEngine
