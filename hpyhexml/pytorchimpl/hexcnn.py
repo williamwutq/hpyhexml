@@ -110,13 +110,13 @@ class PureHexConv(nn.Module):
         >>> # Single-channel board state → features
         >>> conv = PureHexConv(engine_radius=5, kernel_radius=1, 
         ...                    in_channels=1, out_channels=16)
-        >>> board = torch.rand(8, 91)  # batch=8, radius=5 has 91 cells
-        >>> features = conv(board)     # (8, 91*16)
+        >>> board = torch.rand(8, 61)  # batch=8, radius=5 has 91 cells
+        >>> features = conv(board)     # (8, 61*16)
         
         >>> # Multi-channel features → board score
         >>> conv2 = PureHexConv(engine_radius=5, kernel_radius=2,
         ...                     in_channels=16, out_channels=1)
-        >>> scores = conv2(features)   # (8, 91)
+        >>> scores = conv2(features)   # (8, 61)
         
         >>> # Stack for deep network
         >>> model = nn.Sequential(
@@ -479,9 +479,9 @@ class HexShrink(nn.Module):
         - Output: (batch_size, channels, new_num_cells)
 
     Examples:
-        >>> # Shrink a radius-5 grid (91 cells) to radius-3 (19 cells)
+        >>> # Shrink a radius-5 grid (61 cells) to radius-3 (19 cells)
         >>> shrink = HexShrink(engine_radius=5, shrink_by=2)
-        >>> features = torch.rand(8, 16, 91)  # batch=8, channels=16
+        >>> features = torch.rand(8, 16, 61)  # batch=8, channels=16
         >>> shrunk = shrink(features)          # (8, 16, 19)
 
         >>> # Use in a downsampling network
@@ -649,10 +649,10 @@ class HexMove(nn.Module):
         - Output: (batch_size, channels, num_cells)
 
     Examples:
-        >>> # Move a radius-5 grid (91 cells) by Hex(1,-1)
+        >>> # Move a radius-5 grid (61 cells) by Hex(1,-1)
         >>> move = HexMove(engine_radius=5, move_by=Hex(1,-1))
-        >>> features = torch.rand(8, 16, 91)  # batch=8, channels=16
-        >>> moved = move(features)             # (8, 16, 91)
+        >>> features = torch.rand(8, 16, 61)  # batch=8, channels=16
+        >>> moved = move(features)             # (8, 16, 61)
     """
 
     def __init__(self, engine_radius: int, move_by: Hex):
