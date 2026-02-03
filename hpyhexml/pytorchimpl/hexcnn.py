@@ -1,4 +1,15 @@
+# Hexagonal convolution layers using correspondence lists for PyTorch.
+'''
+Provides hexagonal convolution layers that operate directly on hexagonal grids
+using correspondence lists for memory efficiency. Includes standard hexagonal
+convolution, custom kernel convolution, shrinking, and moving layers.
 
+Kernels:
+- PureHexConv: Standard hexagonal convolution with radius-based kernels. Trainable.
+- CustomHexConv: Hexagonal convolution with user-defined kernel shapes. Trainable.
+- HexShrink: Shrinks the hexagonal grid by removing outer layers. Not trainable.
+- HexMove: Moves the hexagonal grid by a specified Hex offset. Not trainable.
+'''
 
 # Import necessary libraries
 import torch
