@@ -8,7 +8,7 @@
 # Copyright (c) 2025 William Wu, licensed under the MIT License.
 
 # Parameters for training the model, replace with your own values.
-save_as = 'hex_tensorflow_mlp_5_1_label_1.pt'
+save_as = 'hex_torch_mlp_5_1_label_1.pt'
 load_from = None # If you want to load a pre-trained model, specify the path here.
 training_path = ['hpyhexml_data/data/train/nrsearchrank/5-1/0.txt', 
                  'hpyhexml_data/data/train/nrsearchrank/5-1/1.txt',
@@ -28,7 +28,7 @@ print("\nStart training script...")
 print(f"""
 Before proceeding, ensure the following configurations are correct:\n
 - Torch is installed.
-- hpyhex, hpyhexml, and hpyhexml/tensorflowimpl are placed in the correct directories.
+- hpyhex, hpyhexml, and hpyhexml/torchimpl are placed in the correct directories.
 - Data paths are correct (relative to this running path or absolute paths).
 - Model settings and parameters are reasonable.
 - Softmax uses native labels, not raw scores. Linear correlation data are within reasonable range.
