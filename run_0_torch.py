@@ -27,7 +27,7 @@ clipnorm = 0.8
 print("\nStart training script...")
 print(f"""
 Before proceeding, ensure the following configurations are correct:\n
-- TensorFlow and Keras are installed.
+- Torch is installed.
 - hpyhex, hpyhexml, and hpyhexml/tensorflowimpl are placed in the correct directories.
 - Data paths are correct (relative to this running path or absolute paths).
 - Model settings and parameters are reasonable.
