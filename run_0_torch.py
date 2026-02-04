@@ -54,7 +54,10 @@ if response != 'y' and response:
 print("\nImporting numpy...")
 import numpy as np
 print("Importing hpyhex and hpyhexml...")
-from hpyhex.hex import HexEngine, Piece, Hex
+try:
+    from hpyhex import HexEngine, Piece, Hex
+except ImportError:
+    from hpyhex.hex import HexEngine, Piece, Hex
 from hpyhexml import hex as hx
 from hpyhexml.generator import load_training_data
 
