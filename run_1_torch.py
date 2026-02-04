@@ -52,3 +52,57 @@ response = input().strip().lower()
 if response != 'y' and response:
     print("Training aborted.")
     exit(0)
+
+print("\nImporting numpy...")
+try:
+    import numpy as np
+except ImportError:
+    print("Error: numpy is not installed.")
+    print("Please install numpy via `pip install numpy`.")
+    exit(1)
+print("Importing hpyhex (hpyhex-rs)...")
+try:
+    from hpyhex import HexEngine, Piece, Hex
+except ImportError:
+    print("Error: hpyhex-rs is not installed or not accessible.")
+    print("This script requires hpyhex-rs acceleration, which is not provided by hpyhex.")
+    print("Please install hpyhex-rs via `pip install hyphex-rs` and ensure hpyhex is uninstalled.")
+    exit(1)
+print("Importing torch...")
+try:
+    import torch
+except ImportError:
+    print("Error: torch is not installed.")
+    print("Please install torch via `pip install torch`.")
+    exit(1)
+print("Importing hpyhexml...")
+from hpyhexml import hex as hx
+from hpyhexml.generator import load_training_data
+print("Imported modules.\n")
+
+# Load training data
+print("Loading training data...")
+training_data = []
+for path in training_path:
+    print(f"Loading {path}...")
+    training_data += load_training_data(path)
+np.random.shuffle(training_data)
+print(f"Loaded {len(training_data)} training samples.")
+print(f"First training sample: \n{training_data[0]}\n")
+
+# Load testing data
+print("Loading testing data...")
+testing_data = []
+for path in testing_path:
+    print(f"Loading {path}...")
+    testing_data += load_training_data(path)
+np.random.shuffle(testing_data)
+print(f"Loaded {len(testing_data)} testing samples.")
+print(f"First testing sample: \n{testing_data[0]}\n")
+print()
+
+# Parse training data
+print("Parsing training data...")
+def prepare_data(engine: HexEngine, queue: list[Piece], desired: list[tuple[int, Hex]]) -> tuple[torch.Tensor, torch.Tensor]:
+    pass # TODO
+    
