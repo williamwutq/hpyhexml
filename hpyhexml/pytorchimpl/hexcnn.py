@@ -6,6 +6,7 @@ convolution, custom kernel convolution, shrinking, and moving layers.
 
 Kernels:
 - PureHexConv: Standard hexagonal convolution with radius-based kernels. Trainable.
+- MaskedHexConv: Hexagonal convolution with mask modulation. Trainable.
 - CustomHexConv: Hexagonal convolution with user-defined kernel shapes. Trainable.
 - HexShrink: Shrinks the hexagonal grid by removing outer layers. Not trainable.
 - HexMove: Moves the hexagonal grid by a specified Hex offset. Not trainable.
@@ -288,6 +289,224 @@ class PureHexConv(nn.Module):
                 f'out_channels={self.out_channels}, '
                 f'bias={self.bias is not None}')
     
+
+class MaskedHexConv(nn.Module):
+    """
+    Masked hexagonal convolution layer using correspondence lists with input mask.
+    
+    Similar to PureHexConv but incorporates a floating-point mask tensor that modulates
+    the convolution weights across kernel positions. The mask allows for dynamic
+    weighting of different kernel components.
+    
+    Args:
+        engine_radius (int): Radius of the hexagonal grid
+        kernel_radius (int): Radius of the convolution kernel, must be >=0
+        kernel_in (int): Number of mask input channels
+        in_channels (int): Number of input features per cell
+        out_channels (int): Number of output features per cell
+        mask_bias (bool): If True, adds a learnable mask bias with C_in * C_out parameters
+        bias (bool): If True, adds a learnable bias with C_out parameters
+        
+    Shape:
+        - Input x: (batch_size, in_channels * num_cells) or (batch_size, num_cells) if in_channels=1
+        - Input mask: (kernel_in, kernel_size)
+        - Output: (batch_size, out_channels * num_cells) or (batch_size, num_cells) if out_channels=1
+        
+    Examples:
+        >>> # Masked convolution with 3 mask channels
+        >>> conv = MaskedHexConv(engine_radius=5, kernel_radius=2, 
+        ...                      kernel_in=3, in_channels=1, out_channels=16)
+        >>> board = torch.rand(8, 61)  # batch=8, radius=5 has 61 cells
+        >>> mask = torch.rand(3, 19)   # 19 kernel positions for radius=2
+        >>> features = conv(board, mask)  # (8, 61*16)
+    """
+    
+    def __init__(
+        self,
+        engine_radius: int,
+        kernel_radius: int,
+        kernel_in: int,
+        in_channels: int = 1,
+        out_channels: int = 1,
+        mask_bias: bool = False,
+        bias: bool = True
+    ):
+        super(MaskedHexConv, self).__init__()
+
+        # Validation
+        if engine_radius <= 0:
+            raise ValueError("engine_radius must be positive.")
+        if kernel_radius < 0:
+            raise ValueError("kernel_radius must be non-negative.")
+        if kernel_in <= 0:
+            raise ValueError("kernel_in must be positive.")
+        
+        self.engine_radius = engine_radius
+        self.kernel_radius = kernel_radius
+        self.kernel_in = kernel_in
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        
+        # Calculate grid size and kernel size
+        self.num_cells = HexEngine.solve_length(engine_radius)
+        self.kernel_size = HexEngine.solve_length(kernel_radius)
+        
+        # Get correspondence lists (reused, not recomputed)
+        correspondence_lists = get_list_of_correspondence_lists(
+            engine_radius, kernel_radius
+        )
+                
+        # Precompute valid mask
+        valid_mask = correspondence_lists != -1
+        self.register_buffer(
+            'valid_mask',
+            torch.from_numpy(valid_mask).float()  # (kernel_size, num_cells)
+        )
+
+        # Compute safe correspondence lists
+        corr_safe = correspondence_lists.copy()
+        corr_safe[~valid_mask] = 0  # Replace -1 with 0
+        
+        # Register as buffer (not a parameter, moves with model to device)
+        self.register_buffer(
+            'corr_safe',
+            torch.from_numpy(corr_safe).long()  # (kernel_size, num_cells)
+        )
+        
+        # Learnable parameters
+        # Weights: (kernel_in, in_channels, out_channels)
+        self.weights = nn.Parameter(
+            torch.randn(kernel_in, in_channels, out_channels)
+        )
+        
+        if mask_bias:
+            # Mask bias: (in_channels, out_channels)
+            self.mask_bias = nn.Parameter(torch.zeros(in_channels, out_channels))
+        else:
+            self.register_parameter('mask_bias', None)
+        
+        if bias:
+            # Bias: (out_channels,)
+            self.bias = nn.Parameter(torch.zeros(out_channels))
+        else:
+            self.register_parameter('bias', None)
+        
+        self.reset_parameters()
+    
+    def reset_parameters(self):
+        """Initialize parameters using Kaiming uniform."""
+        nn.init.kaiming_uniform_(self.weights, a=np.sqrt(5))
+        if self.mask_bias is not None:
+            fan_in = self.in_channels * self.kernel_size
+            bound = 1 / np.sqrt(fan_in)
+            nn.init.uniform_(self.mask_bias, -bound, bound)
+        if self.bias is not None:
+            fan_in = self.in_channels * self.kernel_size
+            bound = 1 / np.sqrt(fan_in)
+            nn.init.uniform_(self.bias, -bound, bound)
+    
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass using correspondence lists with mask modulation.
+        
+        Args:
+            x: Input tensor (B, C_in * L) or (B, L) if C_in=1
+            mask: Mask tensor (M_in, K) where K is kernel_size
+            
+        Returns:
+            Output tensor (B, C_out * L) or (B, L) if C_out=1
+        """
+        if mask.shape != (self.kernel_in, self.kernel_size):
+            raise ValueError(f"mask shape must be ({self.kernel_in}, {self.kernel_size}), got {mask.shape}")
+        
+        B = x.shape[0]
+        
+        # Reshape input to (B, C_in, L)
+        if self.in_channels == 1 and x.shape[1] == self.num_cells:
+            x = x.unsqueeze(1)  # (B, 1, L)
+        else:
+            x = x.view(B, self.in_channels, self.num_cells)  # (B, C_in, L)
+        
+        # Apply convolution using correspondence lists with mask
+        out = self._conv_by_correspondence_lists(x, mask)  # (B, C_out, L)
+        
+        # Reshape output
+        if self.out_channels == 1:
+            out = out.squeeze(1)  # (B, L)
+        else:
+            out = out.view(B, -1)  # (B, C_out * L)
+        
+        return out
+    
+    def _conv_by_correspondence_lists(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        """
+        Core masked convolution operation using correspondence lists.
+        
+        Args:
+            x: Input tensor of shape (B, C_in, L)
+            mask: Mask tensor of shape (kernel_in, K)
+            
+        Returns:
+            Output tensor of shape (B, C_out, L)
+        """
+        B, C_in, L = x.shape
+        kernel_in, K = mask.shape
+        C_out = self.out_channels
+        
+        # Get correspondence lists: (K, L)
+        corr_safe = self.corr_safe
+        valid_mask = self.valid_mask
+        
+        # Gather values for all kernel positions
+        # Expand x to (B, C_in, K, L) then gather
+        x_expanded = x.unsqueeze(2).expand(-1, -1, K, -1)  # (B, C_in, K, L)
+        corr_expanded = corr_safe.unsqueeze(0).unsqueeze(0).expand(B, C_in, -1, -1)  # (B, C_in, K, L)
+        
+        x_vals = torch.gather(x_expanded, 3, corr_expanded)  # (B, C_in, K, L)
+        
+        # Zero out invalid positions
+        valid_expanded = valid_mask.unsqueeze(0).unsqueeze(0).expand(B, C_in, -1, -1)
+        x_vals = x_vals * valid_expanded  # (B, C_in, K, L)
+        
+        # Apply mask modulation
+        # Weights: (M_in, C_in, C_out)
+        effective_weights = self.weights
+        if self.mask_bias is not None:
+            effective_weights = effective_weights + self.mask_bias.unsqueeze(0)  # Broadcast to (M_in, C_in, C_out)
+        
+        # Compute contributions: (B, C_in, K, L) -> (B, M_in, K, L, C_out)
+        contrib = torch.einsum('bckl,mco->bmklo', x_vals, effective_weights)
+        
+        # Apply mask: (M_in, K) -> (1, M_in, K, 1, 1)
+        mask_expanded = mask.unsqueeze(0).unsqueeze(-1).unsqueeze(-1)
+        
+        # Weight contributions
+        weighted_contrib = contrib * mask_expanded  # (B, M_in, K, L, C_out)
+        
+        # Sum over M_in and K dimensions
+        out = weighted_contrib.sum(dim=1).sum(dim=1)  # (B, L, C_out)
+        
+        # Transpose to (B, C_out, L)
+        out = out.transpose(1, 2)
+        
+        # Add bias
+        if self.bias is not None:
+            out = out + self.bias.view(1, -1, 1)  # (1, C_out, 1)
+        
+        return out
+    
+    def extra_repr(self) -> str:
+        """String representation for printing."""
+        return (f'engine_radius={self.engine_radius}, '
+                f'kernel_radius={self.kernel_radius}, '
+                f'kernel_in={self.kernel_in}, '
+                f'num_cells={self.num_cells}, '
+                f'kernel_size={self.kernel_size}, '
+                f'in_channels={self.in_channels}, '
+                f'out_channels={self.out_channels}, '
+                f'mask_bias={self.mask_bias is not None}, '
+                f'bias={self.bias is not None}')
+
 
 class CustomHexConv(nn.Module):
     """
