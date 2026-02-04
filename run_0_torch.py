@@ -56,9 +56,10 @@ import numpy as np
 print("Importing hpyhex and hpyhexml...")
 try:
     from hpyhex import HexEngine, Piece, Hex
+    from hpyhexml import hex_rs as hx
 except ImportError:
     from hpyhex.hex import HexEngine, Piece, Hex
-from hpyhexml import hex as hx
+    from hpyhexml import hex as hx
 from hpyhexml.generator import load_training_data
 
 def prepare_data(engine: HexEngine, queue: list[Piece], desired: list[tuple[int, Hex]]) -> tuple[np.ndarray, np.ndarray]:
@@ -75,10 +76,19 @@ def prepare_data(engine: HexEngine, queue: list[Piece], desired: list[tuple[int,
         TypeError: If any of the parameters are of incorrect type.
         ValueError: If the Hex position is invalid for the given piece index for any piece in the queue.
     """
-    input_data = hx.flatten_engine(engine) + hx.flatten_queue(queue)
+    le = hx.flatten_engine(engine)
+    lq = hx.flatten_queue(queue)
+    if type(le) is not np.ndarray or type(lq) is not np.ndarray:
+        input_data = np.array(le + lq)
+    else:
+        input_data = np.concatenate((le, lq))
     output_data = hx.flatten_single_desired(engine, desired, lambda x: hx.softmax_rank_score(x, len(desired)), swap_noise = 0.01, score_noise = 0)
-    
-    return np.array(input_data), np.array(output_data)
+    if type(output_data) is not np.ndarray:
+        output_data = np.array(output_data)
+
+    return input_data, np.array(output_data)
+
+
 print("Imported modules.\n")
 
 # Load training data
