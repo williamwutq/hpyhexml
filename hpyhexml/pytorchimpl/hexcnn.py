@@ -10,6 +10,9 @@ Kernels:
 - CustomHexConv: Hexagonal convolution with user-defined kernel shapes. Trainable.
 - HexShrink: Shrinks the hexagonal grid by removing outer layers. Not trainable.
 - HexMove: Moves the hexagonal grid by a specified Hex offset. Not trainable.
+- HexDense: Dense layer for hexagonal grids. Trainable.
+- HexBias: Bias layer for hexagonal grids. Trainable.
+- HexMerge: Bilinear merge layer for hexagonal grids. Trainable.
 '''
 
 # Import necessary libraries
@@ -969,5 +972,270 @@ class HexMove(nn.Module):
         return (f'engine_radius={self.engine_radius}, '
                 f'move_by={self.move_by}, '
                 f'num_cells={self.num_cells}')
+
+
+class HexDense(nn.Module):
+    """
+    Dense (fully connected) layer for hexagonal board states.
     
+    Applies a linear transformation to the entire board vector, connecting
+    all input cells/channels to all output cells/channels.
+    
+    Args:
+        engine_radius (int): Radius of the hexagonal grid
+        in_channels (int): Number of input features per cell
+        out_channels (int): Number of output features per cell
+        bias (bool): If True, adds a learnable bias per output feature
+        
+    Shape:
+        - Input: (batch_size, in_channels * num_cells) or (batch_size, num_cells) if in_channels=1
+        - Output: (batch_size, out_channels * num_cells) or (batch_size, num_cells) if out_channels=1
+        
+    Examples:
+        >>> # Dense layer for board features
+        >>> dense = HexDense(engine_radius=5, in_channels=16, out_channels=32)
+        >>> features = torch.rand(8, 16*61)  # batch=8, 61 cells
+        >>> output = dense(features)         # (8, 32*61)
+    """
+    
+    def __init__(
+        self,
+        engine_radius: int,
+        in_channels: int = 1,
+        out_channels: int = 1,
+        bias: bool = True
+    ):
+        super(HexDense, self).__init__()
+
+        if engine_radius <= 0:
+            raise ValueError("engine_radius must be positive.")
+        
+        self.engine_radius = engine_radius
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.num_cells = HexEngine.solve_length(engine_radius)
+        
+        # Dense layer: (in_channels * num_cells) -> (out_channels * num_cells)
+        self.linear = nn.Linear(
+            in_channels * self.num_cells,
+            out_channels * self.num_cells,
+            bias=bias
+        )
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass through dense layer.
+        
+        Args:
+            x: Input tensor (B, C_in * L) or (B, L) if C_in=1
+            
+        Returns:
+            Output tensor (B, C_out * L) or (B, L) if C_out=1
+        """
+        B = x.shape[0]
+        
+        # Ensure input is flattened
+        if self.in_channels == 1 and x.shape[1] == self.num_cells:
+            x = x.view(B, -1)  # (B, L)
+        else:
+            x = x.view(B, -1)  # (B, C_in * L)
+        
+        # Apply linear transformation
+        out = self.linear(x)  # (B, C_out * L)
+        
+        # Reshape output
+        if self.out_channels == 1:
+            out = out.view(B, self.num_cells)  # (B, L)
+        else:
+            out = out.view(B, self.out_channels, self.num_cells)  # (B, C_out, L)
+        
+        return out
+    
+    def extra_repr(self) -> str:
+        """String representation for printing."""
+        return (f'engine_radius={self.engine_radius}, '
+                f'num_cells={self.num_cells}, '
+                f'in_channels={self.in_channels}, '
+                f'out_channels={self.out_channels}, '
+                f'bias={self.linear.bias is not None}')
+
+
+class HexBias(nn.Module):
+    """
+    Bias layer that adds learnable bias to each cell in the hexagonal grid.
+    
+    This layer adds a separate bias term to each cell, with options for
+    per-channel biases.
+    
+    Args:
+        engine_radius (int): Radius of the hexagonal grid
+        channels (int): Number of feature channels per cell
+        
+    Shape:
+        - Input: (batch_size, channels * num_cells) or (batch_size, num_cells) if channels=1
+        - Output: Same as input
+        
+    Examples:
+        >>> # Add bias to single-channel board
+        >>> bias_layer = HexBias(engine_radius=5, channels=1)
+        >>> board = torch.rand(8, 61)
+        >>> biased = bias_layer(board)  # (8, 61)
+        
+        >>> # Add bias to multi-channel features
+        >>> bias_layer = HexBias(engine_radius=5, channels=16)
+        >>> features = torch.rand(8, 16*61)
+        >>> biased = bias_layer(features)  # (8, 16*61)
+    """
+    
+    def __init__(self, engine_radius: int, channels: int = 1):
+        super(HexBias, self).__init__()
+
+        if engine_radius <= 0:
+            raise ValueError("engine_radius must be positive.")
+        if channels <= 0:
+            raise ValueError("channels must be positive.")
+        
+        self.engine_radius = engine_radius
+        self.channels = channels
+        self.num_cells = HexEngine.solve_length(engine_radius)
+        
+        # Bias: (channels, num_cells)
+        self.bias = nn.Parameter(torch.zeros(channels, self.num_cells))
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass adding bias to each cell.
+        
+        Args:
+            x: Input tensor (B, C * L) or (B, L) if C=1
+            
+        Returns:
+            Output tensor with bias added
+        """
+        B = x.shape[0]
+        
+        # Reshape to (B, C, L)
+        if self.channels == 1 and x.shape[1] == self.num_cells:
+            x = x.unsqueeze(1)  # (B, 1, L)
+        else:
+            x = x.view(B, self.channels, self.num_cells)  # (B, C, L)
+        
+        # Add bias
+        out = x + self.bias.unsqueeze(0)  # (B, C, L)
+        
+        # Reshape back
+        if self.channels == 1:
+            out = out.squeeze(1)  # (B, L)
+        else:
+            out = out.view(B, -1)  # (B, C * L)
+        
+        return out
+    
+    def extra_repr(self) -> str:
+        """String representation for printing."""
+        return (f'engine_radius={self.engine_radius}, '
+                f'channels={self.channels}, '
+                f'num_cells={self.num_cells}')
+
+
+class HexMerge(nn.Module):
+    """
+    Bilinear merge layer for hexagonal board states.
+    
+    Merges two input tensors of the same radius using bilinear weights.
+    The weights are universal across all cells in the board.
+    
+    Args:
+        engine_radius (int): Radius of the hexagonal grid
+        in_channels_a (int): Number of input channels for first tensor
+        in_channels_b (int): Number of input channels for second tensor
+        out_channels (int): Number of output channels
+        
+    Shape:
+        - Input x: (batch_size, in_channels_a * num_cells) or (batch_size, num_cells) if in_channels_a=1
+        - Input y: (batch_size, in_channels_b * num_cells) or (batch_size, num_cells) if in_channels_b=1
+        - Output: (batch_size, out_channels * num_cells) or (batch_size, num_cells) if out_channels=1
+        
+    Examples:
+        >>> # Merge two feature maps
+        >>> merge = HexMerge(engine_radius=5, in_channels_a=16, in_channels_b=8, out_channels=32)
+        >>> features_a = torch.rand(8, 16*61)
+        >>> features_b = torch.rand(8, 8*61)
+        >>> output = merge(features_a, features_b)  # (8, 32*61)
+    """
+    
+    def __init__(
+        self,
+        engine_radius: int,
+        in_channels_a: int = 1,
+        in_channels_b: int = 1,
+        out_channels: int = 1
+    ):
+        super(HexMerge, self).__init__()
+
+        if engine_radius <= 0:
+            raise ValueError("engine_radius must be positive.")
+        if in_channels_a <= 0 or in_channels_b <= 0 or out_channels <= 0:
+            raise ValueError("All channel counts must be positive.")
+        
+        self.engine_radius = engine_radius
+        self.in_channels_a = in_channels_a
+        self.in_channels_b = in_channels_b
+        self.out_channels = out_channels
+        self.num_cells = HexEngine.solve_length(engine_radius)
+        
+        # Bilinear weights: (in_channels_a, in_channels_b, out_channels)
+        self.weights = nn.Parameter(
+            torch.randn(in_channels_a, in_channels_b, out_channels)
+        )
+        
+        self.reset_parameters()
+    
+    def reset_parameters(self):
+        """Initialize parameters using Kaiming uniform."""
+        nn.init.kaiming_uniform_(self.weights, a=np.sqrt(5))
+    
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass performing bilinear merge.
+        
+        Args:
+            x: First input tensor (B, C_a * L) or (B, L) if C_a=1
+            y: Second input tensor (B, C_b * L) or (B, L) if C_b=1
+            
+        Returns:
+            Output tensor (B, C_out * L) or (B, L) if C_out=1
+        """
+        B = x.shape[0]
+        
+        # Reshape x to (B, C_a, L)
+        if self.in_channels_a == 1 and x.shape[1] == self.num_cells:
+            x = x.unsqueeze(1)  # (B, 1, L)
+        else:
+            x = x.view(B, self.in_channels_a, self.num_cells)  # (B, C_a, L)
+        
+        # Reshape y to (B, C_b, L)
+        if self.in_channels_b == 1 and y.shape[1] == self.num_cells:
+            y = y.unsqueeze(1)  # (B, 1, L)
+        else:
+            y = y.view(B, self.in_channels_b, self.num_cells)  # (B, C_b, L)
+        
+        # Bilinear merge: (B, C_a, L) and (B, C_b, L) with weights (C_a, C_b, C_out) -> (B, C_out, L)
+        out = torch.einsum('bal,bbl,abo->bol', x, y, self.weights)
+        
+        # Reshape output
+        if self.out_channels == 1:
+            out = out.squeeze(1)  # (B, L)
+        else:
+            out = out.view(B, -1)  # (B, C_out * L)
+        
+        return out
+    
+    def extra_repr(self) -> str:
+        """String representation for printing."""
+        return (f'engine_radius={self.engine_radius}, '
+                f'num_cells={self.num_cells}, '
+                f'in_channels_a={self.in_channels_a}, '
+                f'in_channels_b={self.in_channels_b}, '
+                f'out_channels={self.out_channels}')
 
