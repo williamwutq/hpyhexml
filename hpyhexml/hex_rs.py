@@ -173,7 +173,7 @@ def flatten_piece(piece: Piece) -> np.ndarray:
 
 
 def flatten_single_desired(engine: int | HexEngine, desired: list[tuple[int, Hex]],
-                           descend = lambda x: x,
+                           descend = lambda x: x + 1,
                            swap_noise: float = 0.0, score_noise: float = 0.0
                            ) -> np.ndarray:
     '''
@@ -227,7 +227,7 @@ def flatten_single_desired(engine: int | HexEngine, desired: list[tuple[int, Hex
 
 
 def flatten_multiple_desired(engine: int | HexEngine, queue: int | list[Piece],
-                             desired: list[tuple[int, Hex]], descend = lambda x: x,
+                             desired: list[tuple[int, Hex]], descend = lambda x: x + 1,
                              swap_noise: float = 0.0, score_noise: float = 0.0) -> list[float]:
     '''
     (**Output**) Flatten a multi-queue desired output into a list of floats.
@@ -287,9 +287,15 @@ def flatten_multiple_desired(engine: int | HexEngine, queue: int | list[Piece],
 
 
 if __name__ == "__main__":
-    test = lambda func, arguments: print(f"Testing {func.__name__}... Result: {func(arguments)}")
+    def test(func, *args, **kwargs):
+        print(f"Testing {func.__name__}...")
+        result = func(*args, **kwargs)
+        print(f"Result: {result}")
+        return result
     # Test
     print("This is a module containing utility functions for hpyhex-rs and hpyhexml.")
     test(flatten_engine, HexEngine(8))
     test(flatten_queue, [Piece(3), Piece(61)])
     test(flatten_piece, Piece(67))
+    test(flatten_single_desired, 5, [(0, Hex(0, 0)), (0, Hex(1, 1)), (0, Hex(0, 1))])
+    test(flatten_multiple_desired, HexEngine(5), [Piece(3), Piece(61), Piece(18)], [(0, Hex(0, 0)), (1, Hex(1, 1)), (2, Hex(0, 1))])
