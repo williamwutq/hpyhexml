@@ -18,7 +18,8 @@ from math import exp
 
 __all__ = ['sigmoid_like', 'non_negative', 'non_positive', 'softmax_rank_score',
            'flatten_engine', 'flatten_queue', 'flatten_piece',
-           'flatten_single_desired', 'label_single_desired',]
+           'flatten_single_desired', 'label_single_desired',
+           'flatten_multiple_desired', 'label_multiple_desired',]
 
 
 def gaussian(x, c=1.0):
@@ -286,6 +287,89 @@ def flatten_multiple_desired(engine: int | HexEngine, queue: int | list[Piece],
     return output
 
 
+def flatten_single_desired_optimized(engine: int | HexEngine, desired: list[tuple[int, Hex]], descend = lambda x: x + 1) -> np.ndarray:
+    '''
+    (**Output**) Flatten a single desired output into a list of floats.
+
+    This function guarantees that the output is one-hot encoded.
+
+    Note: This function is optimized with `HexEngine.pair_vec_to_numpy_float32`.
+
+    Parameters:
+        engine (int | HexEngine): The HexEngine instance to get the size or the engine radius. It will not be modified.
+        desired (list[tuple[int, Hex]]): A list of tuples containing piece indices and Hex positions.
+    Returns:
+        vector (list[float]): A list of floats representing the desired output.
+    Raises:
+        TypeError: If the engine is not an instance of HexEngine or desired is not a tuple of (int, Hex).
+        ValueError: If the Hex position is invalid for the given piece index.
+    '''
+    if isinstance(engine, HexEngine):
+        # If engine is an engine, get its radius
+        engine = engine.radius
+    elif not isinstance(engine, int):
+        raise TypeError("engine must be an instance of HexEngine or an integer representing the radius")
+    if not isinstance(desired, list) or not all(isinstance(d, tuple) and len(d) == 2 for d in desired):
+        raise TypeError("desired must be a list of tuples of (piece_index, Hex)")
+    # We know the desired list is (0, Hex), (0, Hex), ..., change it using descend
+    desired = [(descend(index), coord) for index, (piece_index, coord) in enumerate(desired)]
+    # Call pair_vec_to_numpy_float32 with correct scores
+    array = HexEngine.pair_vec_to_numpy_float32(engine, desired)
+    # Cast NANA to 0.0
+    array = np.nan_to_num(array, nan=0.0)
+    return array
+
+
+def flatten_multiple_desired_optimized(engine: int | HexEngine, queue: int | list[Piece],
+                                  desired: list[tuple[int, Hex]], descend = lambda x: x + 1) -> np.ndarray:
+    '''
+    (**Output**) Flatten a multi-queue desired output into a list of floats.
+
+    This function guarantees that the output is one-hot encoded.
+
+    Note: This function is optimized with `HexEngine.pair_vec_to_numpy_float32`. However, it still needs to split the desired list in Python,
+        which means the performance gain is limited for sparse desired lists.
+
+    Parameters:
+        engine (int | HexEngine): The HexEngine instance to get the size or the engine radius. It will not be modified.
+        queue (int | list[Piece]): The queue length or a list of Piece instances. If a list, it will be converted to its length.
+        desired (list[tuple[int, Hex]]): A list of tuples containing piece indices and Hex positions.
+    Returns:
+        vector (list[float]): A list of floats representing the desired output.
+    Raises:
+        TypeError: If the engine is not an instance of HexEngine or an integer, or if queue is not a positive integer or a list of Piece instances.
+        ValueError: If the Hex position is invalid for the given piece index.
+    '''
+    if isinstance(engine, HexEngine):
+        # If engine is an engine, get its radius
+        engine = engine.radius
+    elif not isinstance(engine, int):
+        raise TypeError("engine must be an instance of HexEngine or an integer representing the radius")
+    if not queue:
+        raise TypeError("queue must be a positive integer representing the queue length or a list of Piece instances")
+    elif isinstance(queue, list):
+        queue = len(queue)
+    elif not isinstance(queue, int) or queue < 0:
+        raise TypeError("queue must be a positive integer representing the queue length or a list of Piece instances")
+    if not isinstance(desired, list) or not all(isinstance(d, tuple) and len(d) == 2 for d in desired):
+        raise TypeError("desired must be a list of tuples of (piece_index, Hex)")
+    # We know the desired list is (piece, Hex), (piece, Hex), ..., split into 2D by piece index and form (score, Hex)
+    # Initialize a list of empty lists, one for each queue position
+    desired_split = [[] for _ in range(queue)]
+    for index, (piece_index, coord) in enumerate(desired):
+        desired_split[piece_index].append((descend(index), coord))
+    # For each piece index, call pair_vec_to_numpy_float32
+    vecs = [
+        HexEngine.pair_vec_to_numpy_float32(engine, desired_split[i])
+        for i in range(queue)
+    ]
+    # Stack them together
+    array = np.concatenate(vecs)
+    # Cast NANA to 0.0
+    array = np.nan_to_num(array, nan=0.0)
+    return array
+
+
 if __name__ == "__main__":
     def test(func, *args, **kwargs):
         print(f"Testing {func.__name__}...")
@@ -299,3 +383,5 @@ if __name__ == "__main__":
     test(flatten_piece, Piece(67))
     test(flatten_single_desired, 5, [(0, Hex(0, 0)), (0, Hex(1, 1)), (0, Hex(0, 1))])
     test(flatten_multiple_desired, HexEngine(5), [Piece(3), Piece(61), Piece(18)], [(0, Hex(0, 0)), (1, Hex(1, 1)), (2, Hex(0, 1))])
+    test(flatten_single_desired_optimized, 5, [(0, Hex(0, 0)), (0, Hex(1, 1)), (0, Hex(0, 1))])
+    test(flatten_multiple_desired_optimized, HexEngine(5), [Piece(3), Piece(61), Piece(18)], [(0, Hex(0, 0)), (1, Hex(1, 1)), (2, Hex(0, 1))])
