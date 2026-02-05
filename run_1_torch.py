@@ -53,7 +53,7 @@ if response != 'y' and response:
     print("Training aborted.")
     exit(0)
 
-import time # Should not fail
+import time, sys # Should not fail
 print("\nImporting numpy...")
 try:
     import numpy as np
@@ -269,7 +269,8 @@ patience_counter = 0
 for epoch in range(epochs):
     model.train()
     running_loss = 0.0
-    for a, b, targets in train_loader:
+    total_batches = len(train_loader)
+    for batch_idx, (a, b, targets) in enumerate(train_loader, 1):
         a, b, targets = a.to(device), b.to(device), targets.to(device)
         optimizer.zero_grad()
         outputs = model(a, b)
@@ -277,6 +278,14 @@ for epoch in range(epochs):
         loss.backward()
         optimizer.step()
         running_loss += loss.item()
+
+        # Elementary TUI: progress bar and running loss
+        progress = int(40 * batch_idx / total_batches)
+        bar = '[' + '=' * progress + ' ' * (40 - progress) + ']'
+        avg_loss = running_loss / batch_idx
+        sys.stdout.write(f'\r{bar} {batch_idx}/{total_batches} - Running Loss: {avg_loss:.4f}')
+        sys.stdout.flush()
+    print()  # Move to next line after epoch
     
     # Validation
     model.eval()
