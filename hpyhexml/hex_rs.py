@@ -204,7 +204,7 @@ def flatten_single_desired(engine: int | HexEngine, desired: list[tuple[int, Hex
     if not isinstance(desired, list) or not all(isinstance(d, tuple) and len(d) == 2 for d in desired):
         raise TypeError("desired must be a list of tuples of (piece_index, Hex)")
     # Create an empty array filled with zeros
-    engine_length = HexEngine.solve_radius(engine)
+    engine_length = HexEngine.solve_length(engine)
     output = np.zeros(engine_length, dtype=np.float32)
     # Swap is noise is introduced
     if swap_noise > 0.0:
@@ -264,7 +264,7 @@ def flatten_multiple_desired(engine: int | HexEngine, queue: int | list[Piece],
     if not isinstance(desired, list) or not all(isinstance(d, tuple) and len(d) == 2 for d in desired):
         raise TypeError("desired must be a list of tuples of (piece_index, Hex)")
     # Create an empty array filled with zeros
-    engine_length = HexEngine.solve_radius(engine)
+    engine_length = HexEngine.solve_length(engine)
     output = np.zeros(engine_length * queue, dtype=np.float32)
     # Swap is noise is introduced
     if swap_noise > 0.0:
