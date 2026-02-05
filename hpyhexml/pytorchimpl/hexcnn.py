@@ -414,14 +414,14 @@ class MaskedHexConv(nn.Module):
         
         Args:
             x: Input tensor (B, C_in * L) or (B, L) if C_in=1
-            mask: Mask tensor (M_in, K) where K is kernel_size
-            
+            mask: Mask tensor (B, M_in, K) where K is kernel_size
+
         Returns:
             Output tensor (B, C_out * L) or (B, L) if C_out=1
         """
-        if mask.shape != (self.kernel_in, self.kernel_size):
-            raise ValueError(f"mask shape must be ({self.kernel_in}, {self.kernel_size}), got {mask.shape}")
-        
+        if mask.shape[1:] != (self.kernel_in, self.kernel_size):
+            raise ValueError(f"mask shape must be (B, {self.kernel_in}, {self.kernel_size}), got {mask.shape}")
+
         B = x.shape[0]
         
         # Reshape input to (B, C_in, L)
@@ -437,7 +437,7 @@ class MaskedHexConv(nn.Module):
         if self.out_channels == 1:
             out = out.squeeze(1)  # (B, L)
         else:
-            out = out.view(B, -1)  # (B, C_out * L)
+            out = out.reshape(B, -1)  # (B, C_out * L)
         
         return out
     
@@ -447,13 +447,13 @@ class MaskedHexConv(nn.Module):
         
         Args:
             x: Input tensor of shape (B, C_in, L)
-            mask: Mask tensor of shape (kernel_in, K)
-            
+            mask: Mask tensor of shape (B, kernel_in, K)
+
         Returns:
             Output tensor of shape (B, C_out, L)
         """
         B, C_in, L = x.shape
-        kernel_in, K = mask.shape
+        _, kernel_in, K = mask.shape
         C_out = self.out_channels
         
         # Get correspondence lists: (K, L)
@@ -475,13 +475,13 @@ class MaskedHexConv(nn.Module):
         # Weights: (M_in, C_in, C_out)
         effective_weights = self.weights
         if self.mask_bias is not None:
-            effective_weights = effective_weights + self.mask_bias.unsqueeze(0)  # Broadcast to (M_in, C_in, C_out)
+            effective_weights = effective_weights + self.mask_bias.unsqueeze(0)  # (M_in, C_in, C_out)
         
         # Compute contributions: (B, C_in, K, L) -> (B, M_in, K, L, C_out)
         contrib = torch.einsum('bckl,mco->bmklo', x_vals, effective_weights)
         
-        # Apply mask: (M_in, K) -> (1, M_in, K, 1, 1)
-        mask_expanded = mask.unsqueeze(0).unsqueeze(-1).unsqueeze(-1)
+        # Apply mask: (B, M_in, K) -> (B, M_in, K, 1, 1)
+        mask_expanded = mask.unsqueeze(-1).unsqueeze(-1)  # (B, M_in, K, 1, 1)
         
         # Weight contributions
         weighted_contrib = contrib * mask_expanded  # (B, M_in, K, L, C_out)
