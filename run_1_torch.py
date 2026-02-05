@@ -53,6 +53,7 @@ if response != 'y' and response:
     print("Training aborted.")
     exit(0)
 
+import time # Should not fail
 print("\nImporting numpy...")
 try:
     import numpy as np
@@ -76,33 +77,84 @@ except ImportError:
     print("Please install torch via `pip install torch`.")
     exit(1)
 print("Importing hpyhexml...")
-from hpyhexml import hex as hx
+from hpyhexml import hex_rs as hx
 from hpyhexml.generator import load_training_data
 print("Imported modules.\n")
 
 # Load training data
 print("Loading training data...")
+current_time = time.perf_counter()
 training_data = []
 for path in training_path:
     print(f"Loading {path}...")
     training_data += load_training_data(path)
 np.random.shuffle(training_data)
-print(f"Loaded {len(training_data)} training samples.")
+print(f"Loaded {len(training_data)} training samples in {time.perf_counter() - current_time:.2f} seconds.")
 print(f"First training sample: \n{training_data[0]}\n")
 
 # Load testing data
 print("Loading testing data...")
+current_time = time.perf_counter()
 testing_data = []
 for path in testing_path:
     print(f"Loading {path}...")
     testing_data += load_training_data(path)
 np.random.shuffle(testing_data)
-print(f"Loaded {len(testing_data)} testing samples.")
+print(f"Loaded {len(testing_data)} testing samples in {time.perf_counter() - current_time:.2f} seconds.")
 print(f"First testing sample: \n{testing_data[0]}\n")
 print()
 
 # Parse training data
 print("Parsing training data...")
-def prepare_data(engine: HexEngine, queue: list[Piece], desired: list[tuple[int, Hex]]) -> tuple[torch.Tensor, torch.Tensor]:
-    pass # TODO
-    
+current_time = time.perf_counter()
+def prepare_data(engine: HexEngine, queue: list[Piece], desired: list[tuple[int, Hex]]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    input_data_a = hx.flatten_engine(engine),
+    input_data_b = Piece.vec_to_numpy_float32_flat(queue) # Honestly, here should be stacked, but since queue is length 1, it's the same.
+    output_data = hx.flatten_single_desired(engine, desired, lambda x: hx.softmax_rank_score(x, len(desired)))
+    # Performance benchmarking shows that flatten_single_desired_optimized is actually slower for sparse desired lists.
+
+    return input_data_a, input_data_b, output_data
+
+
+x_train_a = []
+x_train_b = []
+y_train = []
+for sample in training_data:
+    a, b, output_vec = prepare_data(*sample)
+    x_train_a.append(a)
+    x_train_b.append(b)
+    y_train.append(output_vec)
+
+x_train_a = torch.tensor(np.array(x_train_a), dtype=torch.float32)
+x_train_b = torch.tensor(np.array(x_train_b), dtype=torch.float32)
+y_train = torch.tensor(np.array(y_train), dtype=torch.float32)
+y_train = torch.argmax(y_train, dim=1)
+print(f"Parsed {len(x_train_a)} training samples in {time.perf_counter() - current_time:.2f} seconds.")
+print(f"First training sample: \nInput: \n{x_train_a[0], x_train_b[0]}\nOutput: \n{y_train[0]}")
+
+# Parse testing data
+print("Parsing testing data...")
+current_time = time.perf_counter()
+x_test_a = []
+x_test_b = []
+y_test = []
+for sample in testing_data:
+    a, b, output_vec = prepare_data(*sample)
+    x_test_a.append(a)
+    x_test_b.append(b)
+    y_test.append(output_vec)
+
+x_test_a = torch.tensor(np.array(x_test_a), dtype=torch.float32)
+x_test_b = torch.tensor(np.array(x_test_b), dtype=torch.float32)
+y_test = torch.tensor(np.array(y_test), dtype=torch.float32)
+y_test = torch.argmax(y_test, dim=1)
+print(f"Parsed {len(x_test_a)} testing samples in {time.perf_counter() - current_time:.2f} seconds.")
+print(f"First testing sample: \nInput: \n{x_test_a[0], x_test_b[0]}\nOutput: \n{y_test[0]}")
+print()
+
+
+print("\nImporting PyTorch...")
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, TensorDataset, random_split
