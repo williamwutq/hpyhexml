@@ -172,7 +172,118 @@ def flatten_piece(piece: Piece) -> np.ndarray:
     return piece.to_numpy_float32()
 
 
+def flatten_single_desired(engine: int | HexEngine, desired: list[tuple[int, Hex]],
+                           descend = lambda x: x,
+                           swap_noise: float = 0.0, score_noise: float = 0.0
+                           ) -> np.ndarray:
+    '''
+    (**Output**) Flatten a single desired output into a list of floats.
 
+    This function does not guarantees that the output is one-hot encoded nor vector sum to 1.
+
+    Note: This function is slightly optimized using hpyhex-rs intrinsic functions, but it is still majorly implemented in Python
+        due to the need for noise and shuffling.
+
+    Parameters:
+        engine (int | HexEngine): The HexEngine instance to get the size or the engine radius. It will not be modified.
+        desired (list[tuple[int, Hex]]): A list of tuples containing piece indices and Hex positions.
+        decend (callable): A function to calculate the score based on the index.
+        swap_noise (float): Probability of swapping adjacent items in the desired list.
+        score_noise (float): Noise factor to apply to the score.
+    Returns:
+        vector (list[float]): A list of floats representing the desired output.
+    Raises:
+        TypeError: If the engine is not an instance of HexEngine or desired is not a tuple of (int, Hex).
+        ValueError: If the Hex position is invalid for the given piece index.
+    '''
+    if isinstance(engine, HexEngine):
+        # If engine is an engine, get its radius
+        engine = engine.radius
+    elif not isinstance(engine, int):
+        raise TypeError("engine must be an instance of HexEngine or an integer representing the radius")
+    if not isinstance(desired, list) or not all(isinstance(d, tuple) and len(d) == 2 for d in desired):
+        raise TypeError("desired must be a list of tuples of (piece_index, Hex)")
+    # Create an empty array filled with zeros
+    engine_length = HexEngine.solve_radius(engine)
+    output = np.zeros(engine_length, dtype=np.float32)
+    # Swap is noise is introduced
+    if swap_noise > 0.0:
+        for index in range(len(desired)):
+            if index == 0:
+                continue
+            if random() < swap_noise:
+                # Swap this item with the previous one
+                desired[index], desired[index - 1] = desired[index - 1], desired[index]
+    for index, (piece_index, coord) in enumerate(desired):
+        # Calculate the score
+        score = descend(index) * (1.0 + score_noise * (random() - 0.5))
+        # Get the index in the flattened array
+        block_index = HexEngine.hpyhex_rs_index_block(engine, coord)
+        if block_index != -1:
+            output[block_index] = score
+        else:
+            raise ValueError(f"Invalid Hex position {coord} for piece index {piece_index}.")
+    return output
+
+
+def flatten_multiple_desired(engine: int | HexEngine, queue: int | list[Piece],
+                             desired: list[tuple[int, Hex]], descend = lambda x: x,
+                             swap_noise: float = 0.0, score_noise: float = 0.0) -> list[float]:
+    '''
+    (**Output**) Flatten a multi-queue desired output into a list of floats.
+
+    This function does not guarantees that the output is one-hot encoded nor vector sum to 1.
+
+    Note: This function is slightly optimized using hpyhex-rs intrinsic functions, but it is still majorly implemented in Python
+        due to the need for noise and shuffling.
+
+    Parameters:
+        engine (int | HexEngine): The HexEngine instance to get the size or the engine radius. It will not be modified.
+        queue (int | list[Piece]): The queue length or a list of Piece instances. If a list, it will be converted to its length.
+        desired (list[tuple[int, Hex]]): A list of tuples containing piece indices and Hex positions.
+        decend (callable): A function to calculate the score based on the index.
+        swap_noise (float): Probability of swapping adjacent items in the desired list.
+        score_noise (float): Noise factor to apply to the score.
+    Returns:
+        vector (list[float]): A list of floats representing the desired output. It will be of size len(engine) * len(queue_length).
+    Raises:
+        TypeError: If the engine is not an instance of HexEngine or an integer, or if queue is not a positive integer or a list of Piece instances.
+        ValueError: If the Hex position is invalid for the given piece index.
+    '''
+    if isinstance(engine, HexEngine):
+        # If engine is an engine, get its radius
+        engine = engine.radius
+    elif not isinstance(engine, int):
+        raise TypeError("engine must be an instance of HexEngine or an integer representing the radius")
+    if not queue:
+        raise TypeError("queue must be a positive integer representing the queue length or a list of Piece instances")
+    elif isinstance(queue, list):
+        queue = len(queue)
+    elif not isinstance(queue, int) or queue < 0:
+        raise TypeError("queue must be a positive integer representing the queue length or a list of Piece instances")
+    if not isinstance(desired, list) or not all(isinstance(d, tuple) and len(d) == 2 for d in desired):
+        raise TypeError("desired must be a list of tuples of (piece_index, Hex)")
+    # Create an empty array filled with zeros
+    engine_length = HexEngine.solve_radius(engine)
+    output = np.zeros(engine_length * queue, dtype=np.float32)
+    # Swap is noise is introduced
+    if swap_noise > 0.0:
+        for index in range(len(desired)):
+            if index == 0:
+                continue
+            if random() < swap_noise:
+                # Swap this item with the previous one
+                desired[index], desired[index - 1] = desired[index - 1], desired[index]
+    for index, (piece_index, coord) in enumerate(desired):
+        # Calculate the score
+        score = descend(index) * (1.0 + score_noise * (random() - 0.5))
+        # Get the index in the flattened array
+        block_index = HexEngine.hpyhex_rs_index_block(engine, coord)
+        if block_index != -1:
+            output[block_index + engine_length * piece_index] = score
+        else:
+            raise ValueError(f"Invalid Hex position {coord} for piece index {piece_index}.")
+    return output
 
 
 if __name__ == "__main__":
