@@ -1,0 +1,7 @@
+[project]
+name = "hpyhexml"
+version = "0.1.3"
+description = "Machine Learning Code in Python for the HappyHex game"
+license = "MIT"
+authors = [{name = "William Wu", email = "williamwutq@gmail.com"}]
+dependencies = ["hpyhex", "torch", "tensorflow", "keras", "hpyhex-rs", "numpy"]
